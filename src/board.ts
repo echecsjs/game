@@ -29,15 +29,17 @@ export const INITIAL_BOARD: readonly (Piece | undefined)[] = (() => {
   const board: (Piece | undefined)[] = Array.from({ length: 64 });
   for (let file = 0; file < 8; file++) {
     const type = BACK_RANK[file] ?? 'r';
-    board[file] = { color: 'w', type };            // rank 1
-    board[8 + file] = { color: 'w', type: 'p' };   // rank 2
-    board[48 + file] = { color: 'b', type: 'p' };  // rank 7
-    board[56 + file] = { color: 'b', type };        // rank 8
+    board[file] = { color: 'w', type }; // rank 1
+    board[8 + file] = { color: 'w', type: 'p' }; // rank 2
+    board[48 + file] = { color: 'b', type: 'p' }; // rank 7
+    board[56 + file] = { color: 'b', type }; // rank 8
   }
 
   return board;
 })();
 
-export function cloneBoard(board: readonly (Piece | undefined)[]): (Piece | undefined)[] {
+export function cloneBoard(
+  board: readonly (Piece | undefined)[],
+): (Piece | undefined)[] {
   return [...board];
 }

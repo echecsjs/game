@@ -1,6 +1,4 @@
-
 import type { CastlingRights, Color, Piece, Square } from './types.js';
-
 
 export interface FenState {
   board: (Piece | undefined)[];
@@ -127,8 +125,14 @@ export function parseFen(fen: string): FenState {
     throw new Error(`Invalid FEN string: "${fen}"`);
   }
 
-  const [placement, turnString, castlingString, enPassantString, halfmoveString, fullmoveString] =
-    parts as [string, string, string, string, string, string];
+  const [
+    placement,
+    turnString,
+    castlingString,
+    enPassantString,
+    halfmoveString,
+    fullmoveString,
+  ] = parts as [string, string, string, string, string, string];
 
   if (turnString !== 'w' && turnString !== 'b') {
     throw new Error(`Invalid FEN turn: "${turnString}"`);
@@ -145,7 +149,9 @@ export function parseFen(fen: string): FenState {
   const fullmoveNumber = Number.parseInt(fullmoveString, 10);
 
   if (Number.isNaN(halfmoveClock) || Number.isNaN(fullmoveNumber)) {
-    throw new TypeError(`Invalid FEN clocks: "${halfmoveString}" "${fullmoveString}"`);
+    throw new TypeError(
+      `Invalid FEN clocks: "${halfmoveString}" "${fullmoveString}"`,
+    );
   }
 
   return {
@@ -175,5 +181,4 @@ export function serialiseFen(state: FenState): string {
 
 // Re-export utilities used in other modules that work with FEN
 
-
-export {indexToSquare, squareToIndex} from './board.js';
+export { indexToSquare, squareToIndex } from './board.js';

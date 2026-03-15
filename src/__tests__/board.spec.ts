@@ -59,10 +59,16 @@ describe('fileOf', () => {
 
 describe('INITIAL_BOARD', () => {
   it('has a white king on e1', () => {
-    expect(INITIAL_BOARD[squareToIndex('e1')]).toEqual({ color: 'w', type: 'k' });
+    expect(INITIAL_BOARD[squareToIndex('e1')]).toEqual({
+      color: 'w',
+      type: 'k',
+    });
   });
   it('has a black pawn on e7', () => {
-    expect(INITIAL_BOARD[squareToIndex('e7')]).toEqual({ color: 'b', type: 'p' });
+    expect(INITIAL_BOARD[squareToIndex('e7')]).toEqual({
+      color: 'b',
+      type: 'p',
+    });
   });
   it('has undefined on e4', () => {
     expect(INITIAL_BOARD[squareToIndex('e4')]).toBeUndefined();

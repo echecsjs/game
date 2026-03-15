@@ -78,7 +78,10 @@ export class Game {
   move(move: Move): this {
     const legal = generateMoves(this.#state, move.from);
     const isLegal = legal.some(
-      (m) => m.from === move.from && m.to === move.to && m.promotion === move.promotion,
+      (m) =>
+        m.from === move.from &&
+        m.to === move.to &&
+        m.promotion === move.promotion,
     );
 
     if (!isLegal) {

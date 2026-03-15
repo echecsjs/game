@@ -3,7 +3,6 @@ import { generateMoves, isInCheck } from './moves.js';
 import type { FenState } from './fen.js';
 import type { Piece } from './types.js';
 
-
 export function isCheckmate(state: FenState): boolean {
   return isInCheck(state, state.turn) && generateMoves(state).length === 0;
 }

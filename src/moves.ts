@@ -1,7 +1,19 @@
-import { cloneBoard, fileOf, indexToSquare, rankOf, squareToIndex } from './board.js';
+import {
+  cloneBoard,
+  fileOf,
+  indexToSquare,
+  rankOf,
+  squareToIndex,
+} from './board.js';
 
 import type { FenState } from './fen.js';
-import type { Color, Move, Piece, PromotionPieceType, Square } from './types.js';
+import type {
+  Color,
+  Move,
+  Piece,
+  PromotionPieceType,
+  Square,
+} from './types.js';
 
 const PROMOTION_PIECES: PromotionPieceType[] = ['b', 'n', 'q', 'r'];
 
@@ -61,7 +73,10 @@ function makeSquare(rank: number, file: number): Square | undefined {
   return indexToSquare((rank - 1) * 8 + (file - 1));
 }
 
-function getPiece(board: (Piece | undefined)[], square: Square): Piece | undefined {
+function getPiece(
+  board: (Piece | undefined)[],
+  square: Square,
+): Piece | undefined {
   return board[squareToIndex(square)];
 }
 
@@ -99,16 +114,44 @@ function generateAttackMovesForSquare(
       break;
     }
     case 'b': {
-      collectSlidingAttacks(rank, file, attackerColor, board, BISHOP_RAYS, targets);
+      collectSlidingAttacks(
+        rank,
+        file,
+        attackerColor,
+        board,
+        BISHOP_RAYS,
+        targets,
+      );
       break;
     }
     case 'r': {
-      collectSlidingAttacks(rank, file, attackerColor, board, ROOK_RAYS, targets);
+      collectSlidingAttacks(
+        rank,
+        file,
+        attackerColor,
+        board,
+        ROOK_RAYS,
+        targets,
+      );
       break;
     }
     case 'q': {
-      collectSlidingAttacks(rank, file, attackerColor, board, BISHOP_RAYS, targets);
-      collectSlidingAttacks(rank, file, attackerColor, board, ROOK_RAYS, targets);
+      collectSlidingAttacks(
+        rank,
+        file,
+        attackerColor,
+        board,
+        BISHOP_RAYS,
+        targets,
+      );
+      collectSlidingAttacks(
+        rank,
+        file,
+        attackerColor,
+        board,
+        ROOK_RAYS,
+        targets,
+      );
       break;
     }
     case 'k': {
@@ -181,7 +224,12 @@ function collectSlidingAttacks(
     let currentRank = rank + rankDelta;
     let currentFile = file + fileDelta;
 
-    while (currentRank >= 1 && currentRank <= 8 && currentFile >= 1 && currentFile <= 8) {
+    while (
+      currentRank >= 1 &&
+      currentRank <= 8 &&
+      currentFile >= 1 &&
+      currentFile <= 8
+    ) {
       const targetSquare = makeSquare(currentRank, currentFile);
       if (targetSquare === undefined) {
         break;
@@ -219,7 +267,11 @@ function isSquareAttackedBy(
     }
 
     const fromSquare = indexToSquare(index);
-    const attacks = generateAttackMovesForSquare(board, fromSquare, attackerColor);
+    const attacks = generateAttackMovesForSquare(
+      board,
+      fromSquare,
+      attackerColor,
+    );
     if (attacks.includes(square)) {
       return true;
     }
@@ -272,16 +324,48 @@ function generatePseudoLegalMovesForSquare(
       break;
     }
     case 'b': {
-      generateSlidingMoves(state, square, rank, file, piece.color, BISHOP_RAYS, moves);
+      generateSlidingMoves(
+        state,
+        square,
+        rank,
+        file,
+        piece.color,
+        BISHOP_RAYS,
+        moves,
+      );
       break;
     }
     case 'r': {
-      generateSlidingMoves(state, square, rank, file, piece.color, ROOK_RAYS, moves);
+      generateSlidingMoves(
+        state,
+        square,
+        rank,
+        file,
+        piece.color,
+        ROOK_RAYS,
+        moves,
+      );
       break;
     }
     case 'q': {
-      generateSlidingMoves(state, square, rank, file, piece.color, BISHOP_RAYS, moves);
-      generateSlidingMoves(state, square, rank, file, piece.color, ROOK_RAYS, moves);
+      generateSlidingMoves(
+        state,
+        square,
+        rank,
+        file,
+        piece.color,
+        BISHOP_RAYS,
+        moves,
+      );
+      generateSlidingMoves(
+        state,
+        square,
+        rank,
+        file,
+        piece.color,
+        ROOK_RAYS,
+        moves,
+      );
       break;
     }
     case 'k': {
@@ -325,7 +409,10 @@ function generatePawnMoves(
       if (rank === startRank && singlePushOccupant === undefined) {
         const doublePushRank = rank + direction * 2;
         const doublePushSquare = makeSquare(doublePushRank, file);
-        if (doublePushSquare !== undefined && getPiece(state.board, doublePushSquare) === undefined) {
+        if (
+          doublePushSquare !== undefined &&
+          getPiece(state.board, doublePushSquare) === undefined
+        ) {
           moves.push({ from: square, to: doublePushSquare });
         }
       }
@@ -390,7 +477,12 @@ function generateSlidingMoves(
     let currentRank = rank + rankDelta;
     let currentFile = file + fileDelta;
 
-    while (currentRank >= 1 && currentRank <= 8 && currentFile >= 1 && currentFile <= 8) {
+    while (
+      currentRank >= 1 &&
+      currentRank <= 8 &&
+      currentFile >= 1 &&
+      currentFile <= 8
+    ) {
       const targetSquare = makeSquare(currentRank, currentFile);
       if (targetSquare === undefined) {
         break;
@@ -506,8 +598,7 @@ export function applyMoveToState(state: FenState, move: Move): FenState {
   const isRook = piece.type === 'r';
 
   // Detect en passant capture
-  const isEnPassant =
-    isPawn && move.to === state.enPassantSquare && !isCapture;
+  const isEnPassant = isPawn && move.to === state.enPassantSquare && !isCapture;
 
   // Detect castling (king moves 2 squares horizontally)
   const isCastling = isKing && Math.abs(toFile - fromFile) === 2;
@@ -516,7 +607,10 @@ export function applyMoveToState(state: FenState, move: Move): FenState {
   board[fromIndex] = undefined;
 
   // Handle promotion
-  board[toIndex] = isPawn && move.promotion !== undefined ? { color: piece.color, type: move.promotion } : piece;
+  board[toIndex] =
+    isPawn && move.promotion !== undefined
+      ? { color: piece.color, type: move.promotion }
+      : piece;
 
   // Remove en passant captured pawn
   if (isEnPassant) {
@@ -564,54 +658,54 @@ export function applyMoveToState(state: FenState, move: Move): FenState {
 
   if (isRook) {
     switch (move.from) {
-    case 'a1': {
-      wQ = false;
-    
-    break;
-    }
-    case 'h1': {
-      wK = false;
-    
-    break;
-    }
-    case 'a8': {
-      bQ = false;
-    
-    break;
-    }
-    case 'h8': {
-      bK = false;
-    
-    break;
-    }
-    // No default
+      case 'a1': {
+        wQ = false;
+
+        break;
+      }
+      case 'h1': {
+        wK = false;
+
+        break;
+      }
+      case 'a8': {
+        bQ = false;
+
+        break;
+      }
+      case 'h8': {
+        bK = false;
+
+        break;
+      }
+      // No default
     }
   }
 
   // Rook captured: remove castling rights
   if (isCapture) {
     switch (move.to) {
-    case 'a1': {
-      wQ = false;
-    
-    break;
-    }
-    case 'h1': {
-      wK = false;
-    
-    break;
-    }
-    case 'a8': {
-      bQ = false;
-    
-    break;
-    }
-    case 'h8': {
-      bK = false;
-    
-    break;
-    }
-    // No default
+      case 'a1': {
+        wQ = false;
+
+        break;
+      }
+      case 'h1': {
+        wK = false;
+
+        break;
+      }
+      case 'a8': {
+        bQ = false;
+
+        break;
+      }
+      case 'h8': {
+        bK = false;
+
+        break;
+      }
+      // No default
     }
   }
 
@@ -625,7 +719,8 @@ export function applyMoveToState(state: FenState, move: Move): FenState {
   }
 
   // Update halfmove clock
-  const halfmoveClock = isPawn || isCapture || isEnPassant ? 0 : state.halfmoveClock + 1;
+  const halfmoveClock =
+    isPawn || isCapture || isEnPassant ? 0 : state.halfmoveClock + 1;
 
   // Update fullmove number
   const fullmoveNumber =
