@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { STARTING_FEN, parseFen, serialiseFen } from '../fen.js';
+import { STARTING_FEN, parseFen } from '../fen.js';
 import { applyMoveToState, generateMoves, isInCheck } from '../moves.js';
 
 describe('generateMoves — starting position', () => {
@@ -110,8 +110,11 @@ describe('applyMoveToState', () => {
   });
 });
 
-function perft(fen: string, depth: number): number {
-  const state = parseFen(fen);
+import type { FenState } from '../fen.js';
+
+// Pass FenState directly — avoids FEN round-trip overhead per node,
+// making depth-4 positions feasible within test time.
+function perft(state: FenState, depth: number): number {
   if (depth === 0) {
     return 1;
   }
@@ -123,23 +126,86 @@ function perft(fen: string, depth: number): number {
 
   let count = 0;
   for (const move of moves) {
-    const next = applyMoveToState(state, move);
-    count += perft(serialiseFen(next), depth - 1);
+    count += perft(applyMoveToState(state, move), depth - 1);
   }
 
   return count;
 }
 
-describe('perft', () => {
+// Known perft values from https://www.chessprogramming.org/Perft_Results
+// Positions 2-7 from chess.js perft.test.ts — https://github.com/jhlywa/chess.js/blob/master/__tests__/perft.test.ts
+
+describe('perft — starting position (position 1)', () => {
   it('perft(1) = 20', () => {
-    expect(perft(STARTING_FEN, 1)).toBe(20);
+    expect(perft(parseFen(STARTING_FEN), 1)).toBe(20);
   });
 
   it('perft(2) = 400', () => {
-    expect(perft(STARTING_FEN, 2)).toBe(400);
+    expect(perft(parseFen(STARTING_FEN), 2)).toBe(400);
   });
 
   it('perft(3) = 8902', () => {
-    expect(perft(STARTING_FEN, 3)).toBe(8902);
+    expect(perft(parseFen(STARTING_FEN), 3)).toBe(8902);
+  });
+
+  it('perft(4) = 197281', () => {
+    expect(perft(parseFen(STARTING_FEN), 4)).toBe(197_281);
+  });
+});
+
+describe('perft — position 2 (castling, en passant)', () => {
+  // r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1
+  const fen =
+    'r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1';
+
+  it('perft(3) = 97862', () => {
+    expect(perft(parseFen(fen), 3)).toBe(97_862);
+  });
+});
+
+describe('perft — position 3 (endgame pawns)', () => {
+  // 8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1
+  const fen = '8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1';
+
+  it('perft(4) = 43238', () => {
+    expect(perft(parseFen(fen), 4)).toBe(43_238);
+  });
+});
+
+describe('perft — position 4 (promotions)', () => {
+  // r2q1rk1/pP1p2pp/Q4n2/bbp1p3/Np6/1B3NBn/pPPP1PPP/R3K2R b KQ - 0 1
+  const fen =
+    'r2q1rk1/pP1p2pp/Q4n2/bbp1p3/Np6/1B3NBn/pPPP1PPP/R3K2R b KQ - 0 1';
+
+  it('perft(4) = 422333', () => {
+    expect(perft(parseFen(fen), 4)).toBe(422_333);
+  });
+});
+
+describe('perft — position 5 (discovered checks)', () => {
+  // rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8
+  const fen = 'rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8';
+
+  it('perft(3) = 62379', () => {
+    expect(perft(parseFen(fen), 3)).toBe(62_379);
+  });
+});
+
+describe('perft — position 6 (complex midgame)', () => {
+  // r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10
+  const fen =
+    'r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10';
+
+  it('perft(3) = 89890', () => {
+    expect(perft(parseFen(fen), 3)).toBe(89_890);
+  });
+});
+
+describe('perft — position 7 (en passant in FEN)', () => {
+  // rnbqkbnr/p3pppp/2p5/1pPp4/3P4/8/PP2PPPP/RNBQKBNR w KQkq b6 0 4
+  const fen = 'rnbqkbnr/p3pppp/2p5/1pPp4/3P4/8/PP2PPPP/RNBQKBNR w KQkq b6 0 4';
+
+  it('perft(3) = 23509', () => {
+    expect(perft(parseFen(fen), 3)).toBe(23_509);
   });
 });

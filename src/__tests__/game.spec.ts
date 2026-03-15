@@ -168,3 +168,18 @@ describe('moves() filtered by square', () => {
     expect(moves.every((m) => m.from === 'e2')).toBe(true);
   });
 });
+
+// Regression tests — ported from chess.js regression.test.ts
+// https://github.com/jhlywa/chess.js/blob/master/__tests__/regression.test.ts
+
+describe('regression', () => {
+  it('issue #552 — invalid castling rights in FEN should not crash isGameOver', () => {
+    // Position has castling rights set but rooks/king not in castling positions.
+    // chess.js was crashing due to invalid castling moves being generated.
+    const game = Game.fromFen(
+      'kb4r1/p2n3P/1PP5/1P6/8/8/6p1/R3KR2 b KQkq - 0 19',
+    );
+    expect(() => game.isGameOver()).not.toThrow();
+    expect(game.isGameOver()).toBe(false);
+  });
+});

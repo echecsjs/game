@@ -11,20 +11,48 @@ export function isStalemate(state: FenState): boolean {
   return !isInCheck(state, state.turn) && generateMoves(state).length === 0;
 }
 
-export function isInsufficientMaterial(state: FenState): boolean {
-  const pieces = state.board.filter((p): p is Piece => p !== undefined);
+// Returns the square color (0 or 1) for a 0x88 index.
+// Bishops on the same square color cannot cover all squares.
+function squareColor(index: number): number {
+  const rank = 8 - Math.floor(index / 16);
+  const file = index % 16;
+  return (rank + file) % 2;
+}
 
-  // Only kings remain
-  if (pieces.every((p) => p.type === 'k')) {
+export function isInsufficientMaterial(state: FenState): boolean {
+  const pieces: { index: number; piece: Piece }[] = [];
+  for (let index = 0; index <= 119; index++) {
+    if (index & 0x88) {
+      continue;
+    }
+
+    const piece = state.board[index];
+    if (piece !== undefined) {
+      pieces.push({ index: index, piece });
+    }
+  }
+
+  // K vs K
+  if (pieces.every(({ piece: p }) => p.type === 'k')) {
     return true;
   }
 
-  // One side has only king + one bishop or knight
-  const nonKings = pieces.filter((p) => p.type !== 'k');
+  const nonKings = pieces.filter(({ piece: p }) => p.type !== 'k');
+
+  // K+B vs K or K+N vs K
   if (nonKings.length === 1) {
-    const [extra] = nonKings;
-    if (extra !== undefined) {
-      return extra.type === 'b' || extra.type === 'n';
+    const entry = nonKings[0];
+    if (entry !== undefined) {
+      return entry.piece.type === 'b' || entry.piece.type === 'n';
+    }
+  }
+
+  // KB vs KB — any number of bishops, all on the same square color
+  if (nonKings.every(({ piece: p }) => p.type === 'b')) {
+    const colors = nonKings.map(({ index }) => squareColor(index));
+    const allSame = colors.every((c) => c === colors[0]);
+    if (allSame) {
+      return true;
     }
   }
 
