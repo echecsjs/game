@@ -6,6 +6,7 @@
   "description": "GAME is part of the ECHECS project, providing a chess game engine with legal move generation, undo/redo, and game-state detection.",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "chess.js": "^1.4.0",
     "@typescript-eslint/parser": "^8.57.0",
     "@vitest/coverage-v8": "^4.1.0",
     "@vitest/eslint-plugin": "^1.6.12",
@@ -53,6 +54,7 @@
     "url": "https://github.com/mormubis/game.git"
   },
   "scripts": {
+    "bench": "vitest bench --run",
     "build": "tsc --project tsconfig.build.json",
     "docs": "typedoc",
     "format": "pnpm run format:ci --write",
