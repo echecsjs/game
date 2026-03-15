@@ -93,8 +93,8 @@ describe('applyMoveToState', () => {
   it('moves a pawn', () => {
     const state = parseFen(STARTING_FEN);
     const next = applyMoveToState(state, { from: 'e2', to: 'e4' });
-    expect(next.board[28]).toEqual({ color: 'w', type: 'p' }); // e4
-    expect(next.board[12]).toBeUndefined(); // e2 now empty
+    expect(next.board[68]).toEqual({ color: 'w', type: 'p' }); // e4 (0x88 index 68)
+    expect(next.board[100]).toBeUndefined(); // e2 now empty (0x88 index 100)
   });
 
   it('sets en passant square on double pawn push', () => {

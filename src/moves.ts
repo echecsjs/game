@@ -1,8 +1,7 @@
 import {
+  OFF_BOARD,
   cloneBoard,
-  fileOf,
   indexToSquare,
-  rankOf,
   squareToIndex,
 } from './board.js';
 
@@ -17,71 +16,47 @@ import type {
 
 const PROMOTION_PIECES: PromotionPieceType[] = ['b', 'n', 'q', 'r'];
 
-// Knight move offsets as [rankDelta, fileDelta]
-const KNIGHT_OFFSETS: [number, number][] = [
-  [-2, -1],
-  [-2, 1],
-  [-1, -2],
-  [-1, 2],
-  [1, -2],
-  [1, 2],
-  [2, -1],
-  [2, 1],
-];
-
-// Bishop ray directions [rankDelta, fileDelta]
-const BISHOP_RAYS: [number, number][] = [
-  [-1, -1],
-  [-1, 1],
-  [1, -1],
-  [1, 1],
-];
-
-// Rook ray directions [rankDelta, fileDelta]
-const ROOK_RAYS: [number, number][] = [
-  [-1, 0],
-  [0, -1],
-  [0, 1],
-  [1, 0],
-];
-
-// King move offsets [rankDelta, fileDelta]
-const KING_OFFSETS: [number, number][] = [
-  [-1, -1],
-  [-1, 0],
-  [-1, 1],
-  [0, -1],
-  [0, 1],
-  [1, -1],
-  [1, 0],
-  [1, 1],
-];
-
-function squareRank(square: Square): number {
-  return rankOf(square);
-}
-
-function squareFile(square: Square): number {
-  return fileOf(square);
-}
-
-function makeSquare(rank: number, file: number): Square | undefined {
-  if (rank < 1 || rank > 8 || file < 1 || file > 8) {
-    return undefined;
-  }
-
-  return indexToSquare((rank - 1) * 8 + (file - 1));
-}
-
-function getPiece(
-  board: (Piece | undefined)[],
-  square: Square,
-): Piece | undefined {
-  return board[squareToIndex(square)];
-}
+const KNIGHT_OFFSETS_0X88 = [-33, -31, -18, -14, 14, 18, 31, 33] as const;
+const BISHOP_DIRS_0X88 = [-17, -15, 15, 17] as const;
+const ROOK_DIRS_0X88 = [-16, -1, 1, 16] as const;
+const KING_OFFSETS_0X88 = [-17, -16, -15, -1, 1, 15, 16, 17] as const;
 
 function enemyColor(color: Color): Color {
   return color === 'w' ? 'b' : 'w';
+}
+
+/**
+ * Check if `targetIndex` is attacked by any piece of `attackerColor`.
+ * Does NOT consider castling (no recursion).
+ */
+function isSquareAttackedBy(
+  board: (Piece | undefined)[],
+  targetIndex: number,
+  attackerColor: Color,
+): boolean {
+  for (let index = 0; index <= 119; index++) {
+    if (index & OFF_BOARD) {
+      continue;
+    }
+
+    const piece = board[index];
+    if (piece === undefined || piece.color !== attackerColor) {
+      continue;
+    }
+
+    const fromSquare = indexToSquare(index);
+    const attacks = generateAttackMovesForSquare(
+      board,
+      fromSquare,
+      attackerColor,
+    );
+    const targetSquare = indexToSquare(targetIndex);
+    if (attacks.includes(targetSquare)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -95,76 +70,71 @@ function generateAttackMovesForSquare(
   square: Square,
   attackerColor: Color,
 ): Square[] {
-  const piece = getPiece(board, square);
+  const fromIndex = squareToIndex(square);
+  const piece = board[fromIndex];
   if (piece === undefined || piece.color !== attackerColor) {
     return [];
   }
 
-  const rank = squareRank(square);
-  const file = squareFile(square);
   const targets: Square[] = [];
 
   switch (piece.type) {
     case 'p': {
-      collectPawnAttacks(rank, file, attackerColor, targets);
+      collectPawnAttacks(fromIndex, attackerColor, targets);
       break;
     }
     case 'n': {
-      collectKnightAttacks(rank, file, attackerColor, board, targets);
+      collectKnightAttacks(fromIndex, attackerColor, board, targets);
       break;
     }
     case 'b': {
       collectSlidingAttacks(
-        rank,
-        file,
+        fromIndex,
         attackerColor,
         board,
-        BISHOP_RAYS,
+        BISHOP_DIRS_0X88,
         targets,
       );
       break;
     }
     case 'r': {
       collectSlidingAttacks(
-        rank,
-        file,
+        fromIndex,
         attackerColor,
         board,
-        ROOK_RAYS,
+        ROOK_DIRS_0X88,
         targets,
       );
       break;
     }
     case 'q': {
       collectSlidingAttacks(
-        rank,
-        file,
+        fromIndex,
         attackerColor,
         board,
-        BISHOP_RAYS,
+        BISHOP_DIRS_0X88,
         targets,
       );
       collectSlidingAttacks(
-        rank,
-        file,
+        fromIndex,
         attackerColor,
         board,
-        ROOK_RAYS,
+        ROOK_DIRS_0X88,
         targets,
       );
       break;
     }
     case 'k': {
       // King attacks all adjacent squares (no castling in attack check)
-      for (const [rankDelta, fileDelta] of KING_OFFSETS) {
-        const targetSquare = makeSquare(rank + rankDelta, file + fileDelta);
-        if (targetSquare === undefined) {
+      for (const offset of KING_OFFSETS_0X88) {
+        const toIndex = fromIndex + offset;
+        if (toIndex & OFF_BOARD) {
           continue;
         }
 
-        const target = getPiece(board, targetSquare);
+        const target = board[toIndex];
         if (target === undefined || target.color !== attackerColor) {
-          targets.push(targetSquare);
+          targets.push(indexToSquare(toIndex));
         }
       }
 
@@ -176,161 +146,115 @@ function generateAttackMovesForSquare(
 }
 
 function collectPawnAttacks(
-  rank: number,
-  file: number,
+  fromIndex: number,
   color: Color,
   targets: Square[],
 ): void {
-  const direction = color === 'w' ? 1 : -1;
-  const captureRank = rank + direction;
-
-  for (const fileDelta of [-1, 1]) {
-    const captureSquare = makeSquare(captureRank, file + fileDelta);
-    if (captureSquare !== undefined) {
-      targets.push(captureSquare);
+  const captureOffsets = color === 'w' ? [-17, -15] : [15, 17];
+  for (const offset of captureOffsets) {
+    const toIndex = fromIndex + offset;
+    if (!(toIndex & OFF_BOARD)) {
+      targets.push(indexToSquare(toIndex));
     }
   }
 }
 
 function collectKnightAttacks(
-  rank: number,
-  file: number,
+  fromIndex: number,
   color: Color,
   board: (Piece | undefined)[],
   targets: Square[],
 ): void {
-  for (const [rankDelta, fileDelta] of KNIGHT_OFFSETS) {
-    const targetSquare = makeSquare(rank + rankDelta, file + fileDelta);
-    if (targetSquare === undefined) {
+  for (const offset of KNIGHT_OFFSETS_0X88) {
+    const toIndex = fromIndex + offset;
+    if (toIndex & OFF_BOARD) {
       continue;
     }
 
-    const target = getPiece(board, targetSquare);
+    const target = board[toIndex];
     if (target === undefined || target.color !== color) {
-      targets.push(targetSquare);
+      targets.push(indexToSquare(toIndex));
     }
   }
 }
 
 function collectSlidingAttacks(
-  rank: number,
-  file: number,
+  fromIndex: number,
   color: Color,
   board: (Piece | undefined)[],
-  rays: [number, number][],
+  directories: readonly number[],
   targets: Square[],
 ): void {
-  for (const [rankDelta, fileDelta] of rays) {
-    let currentRank = rank + rankDelta;
-    let currentFile = file + fileDelta;
-
-    while (
-      currentRank >= 1 &&
-      currentRank <= 8 &&
-      currentFile >= 1 &&
-      currentFile <= 8
-    ) {
-      const targetSquare = makeSquare(currentRank, currentFile);
-      if (targetSquare === undefined) {
-        break;
-      }
-
-      const target = getPiece(board, targetSquare);
+  for (const direction of directories) {
+    let toIndex = fromIndex + direction;
+    while (!(toIndex & OFF_BOARD)) {
+      const target = board[toIndex];
       if (target === undefined) {
-        targets.push(targetSquare);
+        targets.push(indexToSquare(toIndex));
       } else if (target.color === color) {
         break;
       } else {
-        targets.push(targetSquare);
+        targets.push(indexToSquare(toIndex));
         break;
       }
 
-      currentRank += rankDelta;
-      currentFile += fileDelta;
+      toIndex += direction;
     }
   }
-}
-
-/**
- * Check if `square` is attacked by any piece of `attackerColor`.
- * Does NOT consider castling (no recursion).
- */
-function isSquareAttackedBy(
-  board: (Piece | undefined)[],
-  square: Square,
-  attackerColor: Color,
-): boolean {
-  for (let index = 0; index < 64; index++) {
-    const piece = board[index];
-    if (piece === undefined || piece.color !== attackerColor) {
-      continue;
-    }
-
-    const fromSquare = indexToSquare(index);
-    const attacks = generateAttackMovesForSquare(
-      board,
-      fromSquare,
-      attackerColor,
-    );
-    if (attacks.includes(square)) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 /**
  * Check if the king of `color` is currently in check.
  */
 export function isInCheck(state: FenState, color: Color): boolean {
-  // Find the king
-  let kingSquare: Square | undefined;
-  for (let index = 0; index < 64; index++) {
+  let kingIndex = -1;
+  for (let index = 0; index <= 119; index++) {
+    if (index & OFF_BOARD) {
+      continue;
+    }
+
     const piece = state.board[index];
     if (piece !== undefined && piece.type === 'k' && piece.color === color) {
-      kingSquare = indexToSquare(index);
+      kingIndex = index;
       break;
     }
   }
 
-  if (kingSquare === undefined) {
+  if (kingIndex === -1) {
     return false;
   }
 
-  return isSquareAttackedBy(state.board, kingSquare, enemyColor(color));
+  return isSquareAttackedBy(state.board, kingIndex, enemyColor(color));
 }
 
 function generatePseudoLegalMovesForSquare(
   state: FenState,
   square: Square,
 ): Move[] {
-  const piece = getPiece(state.board, square);
+  const fromIndex = squareToIndex(square);
+  const piece = state.board[fromIndex];
   if (piece === undefined || piece.color !== state.turn) {
     return [];
   }
 
-  const rank = squareRank(square);
-  const file = squareFile(square);
   const moves: Move[] = [];
 
   switch (piece.type) {
     case 'p': {
-      generatePawnMoves(state, square, rank, file, piece.color, moves);
+      generatePawnMoves(state, fromIndex, square, piece.color, moves);
       break;
     }
     case 'n': {
-      generateKnightMoves(state, square, rank, file, piece.color, moves);
+      generateKnightMoves(state, fromIndex, square, piece.color, moves);
       break;
     }
     case 'b': {
       generateSlidingMoves(
         state,
+        fromIndex,
         square,
-        rank,
-        file,
         piece.color,
-        BISHOP_RAYS,
+        BISHOP_DIRS_0X88,
         moves,
       );
       break;
@@ -338,11 +262,10 @@ function generatePseudoLegalMovesForSquare(
     case 'r': {
       generateSlidingMoves(
         state,
+        fromIndex,
         square,
-        rank,
-        file,
         piece.color,
-        ROOK_RAYS,
+        ROOK_DIRS_0X88,
         moves,
       );
       break;
@@ -350,26 +273,24 @@ function generatePseudoLegalMovesForSquare(
     case 'q': {
       generateSlidingMoves(
         state,
+        fromIndex,
         square,
-        rank,
-        file,
         piece.color,
-        BISHOP_RAYS,
+        BISHOP_DIRS_0X88,
         moves,
       );
       generateSlidingMoves(
         state,
+        fromIndex,
         square,
-        rank,
-        file,
         piece.color,
-        ROOK_RAYS,
+        ROOK_DIRS_0X88,
         moves,
       );
       break;
     }
     case 'k': {
-      generateKingMoves(state, square, rank, file, piece.color, moves);
+      generateKingMoves(state, fromIndex, square, piece.color, moves);
       break;
     }
   }
@@ -379,65 +300,62 @@ function generatePseudoLegalMovesForSquare(
 
 function generatePawnMoves(
   state: FenState,
-  square: Square,
-  rank: number,
-  file: number,
+  fromIndex: number,
+  fromSquare: Square,
   color: Color,
   moves: Move[],
 ): void {
-  const direction = color === 'w' ? 1 : -1;
-  const startRank = color === 'w' ? 2 : 7;
-  const promoteRank = color === 'w' ? 8 : 1;
+  const direction = color === 'w' ? -16 : 16;
+  const startRow = color === 'w' ? 6 : 1;
+  const promoteRow = color === 'w' ? 0 : 7;
+  const currentRow = fromIndex >> 4;
   const enemy = enemyColor(color);
+  const captureOffsets = color === 'w' ? [-17, -15] : [15, 17];
 
   // Single push
-  const singlePushRank = rank + direction;
-  const singlePushSquare = makeSquare(singlePushRank, file);
-  if (singlePushSquare !== undefined) {
-    const singlePushOccupant = getPiece(state.board, singlePushSquare);
-    // Pawn can push forward only if the square is empty
-    if (singlePushOccupant === undefined) {
-      if (singlePushRank === promoteRank) {
-        for (const promo of PROMOTION_PIECES) {
-          moves.push({ from: square, promotion: promo, to: singlePushSquare });
-        }
-      } else {
-        moves.push({ from: square, to: singlePushSquare });
+  const singleIndex = fromIndex + direction;
+  if (!(singleIndex & OFF_BOARD) && state.board[singleIndex] === undefined) {
+    const toSquare = indexToSquare(singleIndex);
+    const toRow = singleIndex >> 4;
+    if (toRow === promoteRow) {
+      for (const promo of PROMOTION_PIECES) {
+        moves.push({ from: fromSquare, promotion: promo, to: toSquare });
       }
+    } else {
+      moves.push({ from: fromSquare, to: toSquare });
+    }
 
-      // Double push (only possible if single push square is empty — not just passable)
-      if (rank === startRank && singlePushOccupant === undefined) {
-        const doublePushRank = rank + direction * 2;
-        const doublePushSquare = makeSquare(doublePushRank, file);
-        if (
-          doublePushSquare !== undefined &&
-          getPiece(state.board, doublePushSquare) === undefined
-        ) {
-          moves.push({ from: square, to: doublePushSquare });
-        }
+    // Double push
+    if (currentRow === startRow) {
+      const doubleIndex = fromIndex + direction * 2;
+      if (
+        !(doubleIndex & OFF_BOARD) &&
+        state.board[doubleIndex] === undefined
+      ) {
+        moves.push({ from: fromSquare, to: indexToSquare(doubleIndex) });
       }
     }
   }
 
-  // Diagonal captures
-  for (const fileDelta of [-1, 1]) {
-    const captureRank = rank + direction;
-    const captureFile = file + fileDelta;
-    const captureSquare = makeSquare(captureRank, captureFile);
-    if (captureSquare === undefined) {
+  // Diagonal captures + en passant
+  for (const capOffset of captureOffsets) {
+    const capIndex = fromIndex + capOffset;
+    if (capIndex & OFF_BOARD) {
       continue;
     }
 
-    const target = getPiece(state.board, captureSquare);
-    const isEnPassant = state.enPassantSquare === captureSquare;
+    const capSquare = indexToSquare(capIndex);
+    const target = state.board[capIndex];
+    const isEnPassant = state.enPassantSquare === capSquare;
 
     if ((target !== undefined && target.color === enemy) || isEnPassant) {
-      if (captureRank === promoteRank) {
+      const toRow = capIndex >> 4;
+      if (toRow === promoteRow) {
         for (const promo of PROMOTION_PIECES) {
-          moves.push({ from: square, promotion: promo, to: captureSquare });
+          moves.push({ from: fromSquare, promotion: promo, to: capSquare });
         }
       } else {
-        moves.push({ from: square, to: captureSquare });
+        moves.push({ from: fromSquare, to: capSquare });
       }
     }
   }
@@ -445,89 +363,75 @@ function generatePawnMoves(
 
 function generateKnightMoves(
   state: FenState,
-  square: Square,
-  rank: number,
-  file: number,
+  fromIndex: number,
+  fromSquare: Square,
   color: Color,
   moves: Move[],
 ): void {
-  for (const [rankDelta, fileDelta] of KNIGHT_OFFSETS) {
-    const targetSquare = makeSquare(rank + rankDelta, file + fileDelta);
-    if (targetSquare === undefined) {
+  for (const offset of KNIGHT_OFFSETS_0X88) {
+    const toIndex = fromIndex + offset;
+    if (toIndex & OFF_BOARD) {
       continue;
     }
 
-    const target = getPiece(state.board, targetSquare);
+    const target = state.board[toIndex];
     if (target === undefined || target.color !== color) {
-      moves.push({ from: square, to: targetSquare });
+      moves.push({ from: fromSquare, to: indexToSquare(toIndex) });
     }
   }
 }
 
 function generateSlidingMoves(
   state: FenState,
-  square: Square,
-  rank: number,
-  file: number,
+  fromIndex: number,
+  fromSquare: Square,
   color: Color,
-  rays: [number, number][],
+  directories: readonly number[],
   moves: Move[],
 ): void {
-  for (const [rankDelta, fileDelta] of rays) {
-    let currentRank = rank + rankDelta;
-    let currentFile = file + fileDelta;
-
-    while (
-      currentRank >= 1 &&
-      currentRank <= 8 &&
-      currentFile >= 1 &&
-      currentFile <= 8
-    ) {
-      const targetSquare = makeSquare(currentRank, currentFile);
-      if (targetSquare === undefined) {
-        break;
-      }
-
-      const target = getPiece(state.board, targetSquare);
+  for (const direction of directories) {
+    let toIndex = fromIndex + direction;
+    while (!(toIndex & OFF_BOARD)) {
+      const target = state.board[toIndex];
       if (target === undefined) {
-        moves.push({ from: square, to: targetSquare });
+        moves.push({ from: fromSquare, to: indexToSquare(toIndex) });
       } else if (target.color === color) {
         break;
       } else {
-        moves.push({ from: square, to: targetSquare });
+        moves.push({ from: fromSquare, to: indexToSquare(toIndex) });
         break;
       }
 
-      currentRank += rankDelta;
-      currentFile += fileDelta;
+      toIndex += direction;
     }
   }
 }
 
 function generateKingMoves(
   state: FenState,
-  square: Square,
-  rank: number,
-  file: number,
+  fromIndex: number,
+  fromSquare: Square,
   color: Color,
   moves: Move[],
 ): void {
   // Normal king moves
-  for (const [rankDelta, fileDelta] of KING_OFFSETS) {
-    const targetSquare = makeSquare(rank + rankDelta, file + fileDelta);
-    if (targetSquare === undefined) {
+  for (const offset of KING_OFFSETS_0X88) {
+    const toIndex = fromIndex + offset;
+    if (toIndex & OFF_BOARD) {
       continue;
     }
 
-    const target = getPiece(state.board, targetSquare);
+    const target = state.board[toIndex];
     if (target === undefined || target.color !== color) {
-      moves.push({ from: square, to: targetSquare });
+      moves.push({ from: fromSquare, to: indexToSquare(toIndex) });
     }
   }
 
   // Castling
-  const kingRank = color === 'w' ? 1 : 8;
-  if (rank !== kingRank) {
+  // White king is on rank 1 (row 7 in 0x88: index 112..119), black on rank 8 (row 0: index 0..7)
+  const kingRow = fromIndex >> 4;
+  const expectedRow = color === 'w' ? 7 : 0;
+  if (kingRow !== expectedRow) {
     return;
   }
 
@@ -537,39 +441,34 @@ function generateKingMoves(
   // Kingside castling
   const canKingside = color === 'w' ? castlingRights.wK : castlingRights.bK;
   if (canKingside) {
-    const f = makeSquare(kingRank, 6); // f1 or f8
-    const g = makeSquare(kingRank, 7); // g1 or g8
+    const fIndex = squareToIndex(color === 'w' ? 'f1' : 'f8');
+    const gIndex = squareToIndex(color === 'w' ? 'g1' : 'g8');
     if (
-      f !== undefined &&
-      g !== undefined &&
-      getPiece(state.board, f) === undefined &&
-      getPiece(state.board, g) === undefined &&
-      !isSquareAttackedBy(state.board, square, enemy) &&
-      !isSquareAttackedBy(state.board, f, enemy) &&
-      !isSquareAttackedBy(state.board, g, enemy)
+      state.board[fIndex] === undefined &&
+      state.board[gIndex] === undefined &&
+      !isSquareAttackedBy(state.board, fromIndex, enemy) &&
+      !isSquareAttackedBy(state.board, fIndex, enemy) &&
+      !isSquareAttackedBy(state.board, gIndex, enemy)
     ) {
-      moves.push({ from: square, to: g });
+      moves.push({ from: fromSquare, to: indexToSquare(gIndex) });
     }
   }
 
   // Queenside castling
   const canQueenside = color === 'w' ? castlingRights.wQ : castlingRights.bQ;
   if (canQueenside) {
-    const b = makeSquare(kingRank, 2); // b1 or b8
-    const c = makeSquare(kingRank, 3); // c1 or c8
-    const d = makeSquare(kingRank, 4); // d1 or d8
+    const bIndex = squareToIndex(color === 'w' ? 'b1' : 'b8');
+    const cIndex = squareToIndex(color === 'w' ? 'c1' : 'c8');
+    const dIndex = squareToIndex(color === 'w' ? 'd1' : 'd8');
     if (
-      b !== undefined &&
-      c !== undefined &&
-      d !== undefined &&
-      getPiece(state.board, b) === undefined &&
-      getPiece(state.board, c) === undefined &&
-      getPiece(state.board, d) === undefined &&
-      !isSquareAttackedBy(state.board, square, enemy) &&
-      !isSquareAttackedBy(state.board, d, enemy) &&
-      !isSquareAttackedBy(state.board, c, enemy)
+      state.board[bIndex] === undefined &&
+      state.board[cIndex] === undefined &&
+      state.board[dIndex] === undefined &&
+      !isSquareAttackedBy(state.board, fromIndex, enemy) &&
+      !isSquareAttackedBy(state.board, dIndex, enemy) &&
+      !isSquareAttackedBy(state.board, cIndex, enemy)
     ) {
-      moves.push({ from: square, to: c });
+      moves.push({ from: fromSquare, to: indexToSquare(cIndex) });
     }
   }
 }
@@ -588,10 +487,10 @@ export function applyMoveToState(state: FenState, move: Move): FenState {
     return state;
   }
 
-  const fromRank = squareRank(move.from);
-  const toRank = squareRank(move.to);
-  const fromFile = squareFile(move.from);
-  const toFile = squareFile(move.to);
+  const fromRow = fromIndex >> 4;
+  const toRow = toIndex >> 4;
+  const fromFile = fromIndex & 0x07;
+  const toFile = toIndex & 0x07;
   const isCapture = board[toIndex] !== undefined;
   const isPawn = piece.type === 'p';
   const isKing = piece.type === 'k';
@@ -614,32 +513,28 @@ export function applyMoveToState(state: FenState, move: Move): FenState {
 
   // Remove en passant captured pawn
   if (isEnPassant) {
-    const capturedPawnRank = piece.color === 'w' ? toRank - 1 : toRank + 1;
-    const capturedPawnSquare = makeSquare(capturedPawnRank, toFile);
-    if (capturedPawnSquare !== undefined) {
-      board[squareToIndex(capturedPawnSquare)] = undefined;
-    }
+    // The captured pawn is on the same file as toIndex but same row as fromIndex
+    // White captures: toRow is one row above fromRow (lower index), captured pawn is at toFile, fromRow
+    // Black captures: toRow is one row below fromRow (higher index), captured pawn is at toFile, fromRow
+    const capturedPawnIndex = (fromRow << 4) | toFile;
+    board[capturedPawnIndex] = undefined;
   }
 
   // Handle castling rook movement
   if (isCastling) {
-    const castleRank = piece.color === 'w' ? 1 : 8;
+    const castleRow = piece.color === 'w' ? 7 : 0;
     if (toFile > fromFile) {
-      // Kingside: rook moves from h-file to f-file
-      const rookFrom = makeSquare(castleRank, 8);
-      const rookTo = makeSquare(castleRank, 6);
-      if (rookFrom !== undefined && rookTo !== undefined) {
-        board[squareToIndex(rookTo)] = board[squareToIndex(rookFrom)];
-        board[squareToIndex(rookFrom)] = undefined;
-      }
+      // Kingside: rook moves from h-file (7) to f-file (5)
+      const rookFrom = (castleRow << 4) | 7;
+      const rookTo = (castleRow << 4) | 5;
+      board[rookTo] = board[rookFrom];
+      board[rookFrom] = undefined;
     } else {
-      // Queenside: rook moves from a-file to d-file
-      const rookFrom = makeSquare(castleRank, 1);
-      const rookTo = makeSquare(castleRank, 4);
-      if (rookFrom !== undefined && rookTo !== undefined) {
-        board[squareToIndex(rookTo)] = board[squareToIndex(rookFrom)];
-        board[squareToIndex(rookFrom)] = undefined;
-      }
+      // Queenside: rook moves from a-file (0) to d-file (3)
+      const rookFrom = castleRow << 4;
+      const rookTo = (castleRow << 4) | 3;
+      board[rookTo] = board[rookFrom];
+      board[rookFrom] = undefined;
     }
   }
 
@@ -712,10 +607,12 @@ export function applyMoveToState(state: FenState, move: Move): FenState {
   const castlingRights = { bK, bQ, wK, wQ };
 
   // Update en passant square
+  // A double pawn push sets the en passant square to the skipped square
   let enPassantSquare: Square | undefined;
-  if (isPawn && Math.abs(toRank - fromRank) === 2) {
-    const epRank = piece.color === 'w' ? fromRank + 1 : fromRank - 1;
-    enPassantSquare = makeSquare(epRank, fromFile);
+  if (isPawn && Math.abs(toRow - fromRow) === 2) {
+    // The skipped square is between fromRow and toRow, same file
+    const epRow = (fromRow + toRow) >> 1;
+    enPassantSquare = indexToSquare((epRow << 4) | fromFile);
   }
 
   // Update halfmove clock
@@ -746,7 +643,11 @@ export function generateMoves(state: FenState, square?: Square): Move[] {
   const pseudoMoves: Move[] = [];
 
   if (square === undefined) {
-    for (let index = 0; index < 64; index++) {
+    for (let index = 0; index <= 119; index++) {
+      if (index & OFF_BOARD) {
+        continue;
+      }
+
       const piece = state.board[index];
       if (piece === undefined || piece.color !== state.turn) {
         continue;
@@ -756,7 +657,8 @@ export function generateMoves(state: FenState, square?: Square): Move[] {
       pseudoMoves.push(...generatePseudoLegalMovesForSquare(state, fromSquare));
     }
   } else {
-    const piece = getPiece(state.board, square);
+    const fromIndex = squareToIndex(square);
+    const piece = state.board[fromIndex];
     if (piece === undefined || piece.color !== state.turn) {
       return [];
     }

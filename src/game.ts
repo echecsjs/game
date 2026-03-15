@@ -1,3 +1,4 @@
+import { squareToIndex } from './board.js';
 import { isInsufficientMaterial, isThreefoldRepetition } from './detection.js';
 import { type FenState, STARTING_FEN, parseFen, serialiseFen } from './fen.js';
 import { applyMoveToState, generateMoves, isInCheck } from './moves.js';
@@ -44,10 +45,12 @@ export class Game {
 
   board(): (Piece | undefined)[][] {
     const result: (Piece | undefined)[][] = [];
-    for (let rank = 0; rank < 8; rank++) {
+    // rank 0 → rank 1 (a1-h1), rank 7 → rank 8 (a8-h8) — matches original API
+    for (let rank = 1; rank <= 8; rank++) {
       const row: (Piece | undefined)[] = [];
-      for (let file = 0; file < 8; file++) {
-        row.push(this.#state.board[rank * 8 + file]);
+      for (let fileCode = 0; fileCode < 8; fileCode++) {
+        // 0x88 index: (8 - rank) * 16 + fileCode
+        row.push(this.#state.board[(8 - rank) * 16 + fileCode]);
       }
       result.push(row);
     }
@@ -59,9 +62,7 @@ export class Game {
   }
 
   get(square: Square): Piece | undefined {
-    const file = (square.codePointAt(0) ?? 0) - ('a'.codePointAt(0) ?? 0);
-    const rank = Number.parseInt(square[1] ?? '1', 10) - 1;
-    return this.#state.board[rank * 8 + file];
+    return this.#state.board[squareToIndex(square)];
   }
 
   history(): Move[] {
