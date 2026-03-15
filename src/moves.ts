@@ -10,6 +10,7 @@ import type {
   Color,
   Move,
   Piece,
+  PieceType,
   PromotionPieceType,
   Square,
 } from './types.js';
@@ -21,12 +22,87 @@ const BISHOP_DIRS_0X88 = [-17, -15, 15, 17] as const;
 const ROOK_DIRS_0X88 = [-16, -1, 1, 16] as const;
 const KING_OFFSETS_0X88 = [-17, -16, -15, -1, 1, 15, 16, 17] as const;
 
+// ── ATTACKS / RAYS lookup tables ─────────────────────────────────────────────
+
+const PAWN_MASK = 0x01;
+const KNIGHT_MASK = 0x02;
+const BISHOP_MASK = 0x04;
+const ROOK_MASK = 0x08;
+const KING_MASK = 0x10;
+
+const PIECE_MASKS: Record<PieceType, number> = {
+  b: BISHOP_MASK,
+  k: KING_MASK,
+  n: KNIGHT_MASK,
+  p: PAWN_MASK,
+  q: BISHOP_MASK | ROOK_MASK,
+  r: ROOK_MASK,
+};
+
+const DIFF_OFFSET = 119; // centres diff range [-119, +119] at index 0
+
+const ATTACKS: number[] = Array.from<number>({ length: 240 }).fill(0);
+const RAYS: number[] = Array.from<number>({ length: 240 }).fill(0);
+
+(function initAttackTables() {
+  // Knight
+  for (const offset of KNIGHT_OFFSETS_0X88) {
+    ATTACKS[offset + DIFF_OFFSET] =
+      (ATTACKS[offset + DIFF_OFFSET] ?? 0) | KNIGHT_MASK;
+  }
+
+  // King
+  for (const offset of KING_OFFSETS_0X88) {
+    ATTACKS[offset + DIFF_OFFSET] =
+      (ATTACKS[offset + DIFF_OFFSET] ?? 0) | KING_MASK;
+  }
+
+  // Pawns — white attacks at offsets -17 and -15 (toward rank 8 = lower index)
+  // black attacks at +15 and +17. Both share PAWN_MASK; color checked at use time.
+  for (const offset of [15, 17]) {
+    ATTACKS[offset + DIFF_OFFSET] =
+      (ATTACKS[offset + DIFF_OFFSET] ?? 0) | PAWN_MASK;
+    ATTACKS[-offset + DIFF_OFFSET] =
+      (ATTACKS[-offset + DIFF_OFFSET] ?? 0) | PAWN_MASK;
+  }
+
+  // Sliding pieces — walk every ray from every valid square
+  for (let from = 0; from <= 119; from++) {
+    if (from & OFF_BOARD) {
+      continue;
+    }
+
+    for (const direction of ROOK_DIRS_0X88) {
+      let to = from + direction;
+      while (!(to & OFF_BOARD)) {
+        const diff = to - from;
+        ATTACKS[diff + DIFF_OFFSET] =
+          (ATTACKS[diff + DIFF_OFFSET] ?? 0) | ROOK_MASK;
+        RAYS[diff + DIFF_OFFSET] = direction;
+        to += direction;
+      }
+    }
+
+    for (const direction of BISHOP_DIRS_0X88) {
+      let to = from + direction;
+      while (!(to & OFF_BOARD)) {
+        const diff = to - from;
+        ATTACKS[diff + DIFF_OFFSET] =
+          (ATTACKS[diff + DIFF_OFFSET] ?? 0) | BISHOP_MASK;
+        RAYS[diff + DIFF_OFFSET] = direction;
+        to += direction;
+      }
+    }
+  }
+})();
+
 function enemyColor(color: Color): Color {
   return color === 'w' ? 'b' : 'w';
 }
 
 /**
  * Check if `targetIndex` is attacked by any piece of `attackerColor`.
+ * Uses ATTACKS/RAYS lookup tables for O(1) piece-type check + ray blocker scan.
  * Does NOT consider castling (no recursion).
  */
 function isSquareAttackedBy(
@@ -44,163 +120,60 @@ function isSquareAttackedBy(
       continue;
     }
 
-    const fromSquare = indexToSquare(index);
-    const attacks = generateAttackMovesForSquare(
-      board,
-      fromSquare,
-      attackerColor,
-    );
-    const targetSquare = indexToSquare(targetIndex);
-    if (attacks.includes(targetSquare)) {
+    const diff = index - targetIndex;
+    const tableIndex = diff + DIFF_OFFSET;
+    const attackMask = ATTACKS[tableIndex] ?? 0;
+    if (attackMask === 0) {
+      continue;
+    }
+
+    const pieceMask = PIECE_MASKS[piece.type];
+    if ((attackMask & pieceMask) === 0) {
+      continue;
+    }
+
+    // Pawn: direction must match attacker color
+    // White pawn attacks toward lower indices (attacker index > target index → diff > 0)
+    if (piece.type === 'p') {
+      if (attackerColor === 'w' && diff <= 0) {
+        continue;
+      }
+
+      if (attackerColor === 'b' && diff >= 0) {
+        continue;
+      }
+
+      return true;
+    }
+
+    // Knight / King: no blockers
+    if (piece.type === 'n' || piece.type === 'k') {
+      return true;
+    }
+
+    // Sliding piece: walk ray and check for blockers
+    // RAYS[diff + DIFF_OFFSET] = d where diff = to - from = d * n (n >= 1) along the ray.
+    // Negating gives the step to walk from the attacker toward targetIndex.
+    const step = -(RAYS[tableIndex] ?? 0);
+    if (step === 0) {
+      continue;
+    }
+
+    let index_ = index + step;
+    while (index_ !== targetIndex) {
+      if (index_ & OFF_BOARD || board[index_] !== undefined) {
+        break;
+      }
+
+      index_ += step;
+    }
+
+    if (index_ === targetIndex) {
       return true;
     }
   }
 
   return false;
-}
-
-/**
- * Generate pseudo-legal attack moves for a single piece at `square`,
- * treating the piece as belonging to `attackerColor`.
- * This is used for check detection and does NOT include castling
- * (to avoid infinite recursion).
- */
-function generateAttackMovesForSquare(
-  board: (Piece | undefined)[],
-  square: Square,
-  attackerColor: Color,
-): Square[] {
-  const fromIndex = squareToIndex(square);
-  const piece = board[fromIndex];
-  if (piece === undefined || piece.color !== attackerColor) {
-    return [];
-  }
-
-  const targets: Square[] = [];
-
-  switch (piece.type) {
-    case 'p': {
-      collectPawnAttacks(fromIndex, attackerColor, targets);
-      break;
-    }
-    case 'n': {
-      collectKnightAttacks(fromIndex, attackerColor, board, targets);
-      break;
-    }
-    case 'b': {
-      collectSlidingAttacks(
-        fromIndex,
-        attackerColor,
-        board,
-        BISHOP_DIRS_0X88,
-        targets,
-      );
-      break;
-    }
-    case 'r': {
-      collectSlidingAttacks(
-        fromIndex,
-        attackerColor,
-        board,
-        ROOK_DIRS_0X88,
-        targets,
-      );
-      break;
-    }
-    case 'q': {
-      collectSlidingAttacks(
-        fromIndex,
-        attackerColor,
-        board,
-        BISHOP_DIRS_0X88,
-        targets,
-      );
-      collectSlidingAttacks(
-        fromIndex,
-        attackerColor,
-        board,
-        ROOK_DIRS_0X88,
-        targets,
-      );
-      break;
-    }
-    case 'k': {
-      // King attacks all adjacent squares (no castling in attack check)
-      for (const offset of KING_OFFSETS_0X88) {
-        const toIndex = fromIndex + offset;
-        if (toIndex & OFF_BOARD) {
-          continue;
-        }
-
-        const target = board[toIndex];
-        if (target === undefined || target.color !== attackerColor) {
-          targets.push(indexToSquare(toIndex));
-        }
-      }
-
-      break;
-    }
-  }
-
-  return targets;
-}
-
-function collectPawnAttacks(
-  fromIndex: number,
-  color: Color,
-  targets: Square[],
-): void {
-  const captureOffsets = color === 'w' ? [-17, -15] : [15, 17];
-  for (const offset of captureOffsets) {
-    const toIndex = fromIndex + offset;
-    if (!(toIndex & OFF_BOARD)) {
-      targets.push(indexToSquare(toIndex));
-    }
-  }
-}
-
-function collectKnightAttacks(
-  fromIndex: number,
-  color: Color,
-  board: (Piece | undefined)[],
-  targets: Square[],
-): void {
-  for (const offset of KNIGHT_OFFSETS_0X88) {
-    const toIndex = fromIndex + offset;
-    if (toIndex & OFF_BOARD) {
-      continue;
-    }
-
-    const target = board[toIndex];
-    if (target === undefined || target.color !== color) {
-      targets.push(indexToSquare(toIndex));
-    }
-  }
-}
-
-function collectSlidingAttacks(
-  fromIndex: number,
-  color: Color,
-  board: (Piece | undefined)[],
-  directories: readonly number[],
-  targets: Square[],
-): void {
-  for (const direction of directories) {
-    let toIndex = fromIndex + direction;
-    while (!(toIndex & OFF_BOARD)) {
-      const target = board[toIndex];
-      if (target === undefined) {
-        targets.push(indexToSquare(toIndex));
-      } else if (target.color === color) {
-        break;
-      } else {
-        targets.push(indexToSquare(toIndex));
-        break;
-      }
-
-      toIndex += direction;
-    }
-  }
 }
 
 /**
@@ -386,10 +359,10 @@ function generateSlidingMoves(
   fromIndex: number,
   fromSquare: Square,
   color: Color,
-  directories: readonly number[],
+  directions: readonly number[],
   moves: Move[],
 ): void {
-  for (const direction of directories) {
+  for (const direction of directions) {
     let toIndex = fromIndex + direction;
     while (!(toIndex & OFF_BOARD)) {
       const target = state.board[toIndex];
