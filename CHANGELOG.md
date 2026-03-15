@@ -8,6 +8,14 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-03-15
+
+### Added
+
+- `Game.isAttacked(square, color)` — returns `true` if any piece of `color`
+  attacks `square`. Matches chess.js semantics: pinned pieces still attack, own
+  pieces count as attacked squares, no X-ray, same square returns `false`.
+
 ## [1.0.0] - 2026-03-15
 
 ### Changed

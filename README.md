@@ -149,6 +149,21 @@ game.history(); // [{ from: 'e2', to: 'e4' }]
 
 Returns `true` if the active color's king is in check.
 
+#### `game.isAttacked(square, color)`
+
+Returns `true` if any piece of `color` attacks `square`. The square does not
+need to be empty — it may contain a piece of either color. A piece does not
+attack its own square.
+
+```typescript
+const game = new Game();
+game.isAttacked('f3', 'w'); // true — white pawn on g2 attacks f3
+game.isAttacked('f6', 'b'); // true — black pawn on g7 attacks f6
+```
+
+Pinned pieces still count as attacking. There is no X-ray — a piece blocked by
+another piece does not attack through it.
+
 #### `game.isCheckmate()`
 
 Returns `true` if the active color is in checkmate.
