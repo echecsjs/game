@@ -8,6 +8,12 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-03-15
+
+### Changed
+
+- First stable release. No API changes from `0.1.1`.
+
 ## [0.1.1] - 2026-03-15
 
 ### Changed
