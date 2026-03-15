@@ -1,7 +1,7 @@
 import { Chess } from 'chess.js';
 import { bench, describe } from 'vitest';
 
-import { STARTING_FEN as FEN, parseFen, serialiseFen } from '../fen.js';
+import { STARTING_FEN as FEN, parseFen } from '../fen.js';
 import { Game } from '../game.js';
 import { applyMoveToState, generateMoves } from '../moves.js';
 

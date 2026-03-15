@@ -182,16 +182,25 @@ Groups, separated by a blank line, in this order:
 
 ### Board representation
 
-The board is a flat `(Piece | undefined)[64]` array. Index layout:
+The board is a flat `(Piece | undefined)[128]` array using the **0x88
+representation**. Index layout:
 
 ```
-index = (rank - 1) * 8 + file   where file: a=0 … h=7, rank: 1-based
-a1=0, b1=1, …, h1=7, a2=8, …, h8=63
+index = (8 - rank) * 16 + file   where file: a=0 … h=7, rank: 1-based
+a8=0, b8=1, …, h8=7, a7=16, …, a1=112, h1=119
 ```
 
-`src/board.ts` provides `squareToIndex` and `indexToSquare` for converting
-between `Square` strings and indices. All internal code uses indices directly;
-the public API accepts `Square` strings.
+Valid squares satisfy `index & 0x88 === 0`. The other 64 slots are always
+`undefined` and act as padding — they enable two key optimisations:
+
+1. **Off-board check:** `index & 0x88 !== 0` — one bitwise AND replaces four
+   comparisons per ray step.
+2. **ATTACKS lookup table:** `ATTACKS[(to - from) + 119]` gives a bitmask of
+   piece types that can attack along any vector in O(1), without ray tracing.
+
+`src/board.ts` provides `squareToIndex`, `indexToSquare`, and the `OFF_BOARD`
+constant. All internal code uses indices directly; the public API accepts
+`Square` strings.
 
 ### FenState
 
@@ -222,6 +231,12 @@ It is an internal type — not exported from `src/index.ts`.
 `isInCheck` uses a separate `isSquareAttackedBy` path that does **not** generate
 castling moves — this breaks the infinite recursion that would otherwise occur
 when castling checks whether the king passes through an attacked square.
+
+`isSquareAttackedBy` uses the `ATTACKS[240]` and `RAYS[240]` lookup tables
+(precomputed at module load). For each enemy piece, one table lookup determines
+if that piece type can attack along the vector from the attacker to the target.
+For sliding pieces, a ray walk then checks for blockers. This is significantly
+faster than generating all attack moves and scanning them.
 
 `applyMoveToState` returns a new `FenState` (does not mutate). It handles: en
 passant pawn removal, rook relocation on castling, pawn promotion, castling
