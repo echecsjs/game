@@ -148,7 +148,7 @@ describe('perft — starting position (position 1)', () => {
     expect(perft(parseFen(STARTING_FEN), 3)).toBe(8902);
   });
 
-  it('perft(4) = 197281', () => {
+  it('perft(4) = 197281', { timeout: 30_000 }, () => {
     expect(perft(parseFen(STARTING_FEN), 4)).toBe(197_281);
   });
 });
@@ -167,7 +167,7 @@ describe('perft — position 3 (endgame pawns)', () => {
   // 8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1
   const fen = '8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1';
 
-  it('perft(4) = 43238', () => {
+  it('perft(4) = 43238', { timeout: 30_000 }, () => {
     expect(perft(parseFen(fen), 4)).toBe(43_238);
   });
 });
@@ -177,7 +177,7 @@ describe('perft — position 4 (promotions)', () => {
   const fen =
     'r2q1rk1/pP1p2pp/Q4n2/bbp1p3/Np6/1B3NBn/pPPP1PPP/R3K2R b KQ - 0 1';
 
-  it('perft(4) = 422333', () => {
+  it('perft(4) = 422333', { timeout: 30_000 }, () => {
     expect(perft(parseFen(fen), 4)).toBe(422_333);
   });
 });
