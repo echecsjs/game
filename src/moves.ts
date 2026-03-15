@@ -311,11 +311,8 @@ function generatePawnMoves(
   const singlePushSquare = makeSquare(singlePushRank, file);
   if (singlePushSquare !== undefined) {
     const singlePushOccupant = getPiece(state.board, singlePushSquare);
-    // Pawn can push forward if the square is empty or has the enemy king
-    const pushBlocked =
-      singlePushOccupant !== undefined &&
-      !(singlePushOccupant.color === enemy && singlePushOccupant.type === 'k');
-    if (!pushBlocked) {
+    // Pawn can push forward only if the square is empty
+    if (singlePushOccupant === undefined) {
       if (singlePushRank === promoteRank) {
         for (const promo of PROMOTION_PIECES) {
           moves.push({ from: square, promotion: promo, to: singlePushSquare });

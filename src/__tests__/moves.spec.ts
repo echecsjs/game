@@ -79,7 +79,8 @@ describe('generateMoves — en passant', () => {
 
 describe('generateMoves — promotion', () => {
   it('includes all 4 promotion targets', () => {
-    const fen = '4k3/4P3/8/8/8/8/8/4K3 w - - 0 1';
+    // Black king on a8, white king on a1, white pawn on e7 — clear path to e8
+    const fen = 'k7/4P3/8/8/8/8/8/K7 w - - 0 1';
     const moves = generateMoves(parseFen(fen), 'e7');
     expect(moves).toContainEqual({ from: 'e7', to: 'e8', promotion: 'q' });
     expect(moves).toContainEqual({ from: 'e7', to: 'e8', promotion: 'r' });
