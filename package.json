@@ -3,7 +3,7 @@
   "bugs": {
     "url": "https://github.com/mormubis/game/issues"
   },
-  "description": "GAME is part of the ECHECS project, providing a chess game engine with legal move generation, undo/redo, and game-state detection.",
+  "description": "Chess game engine with legal move generation, check/checkmate/stalemate detection, FEN parsing, and undo/redo. Zero dependencies, strict TypeScript.",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "chess.js": "^1.4.0",
@@ -40,11 +40,20 @@
   ],
   "homepage": "https://github.com/mormubis/game#readme",
   "keywords": [
+    "board",
+    "board-game",
+    "checkmate",
     "chess",
+    "chess-engine",
+    "fen",
     "game",
-    "legal moves",
-    "move generation",
-    "board"
+    "legal-moves",
+    "move-generation",
+    "no-dependencies",
+    "redo",
+    "stalemate",
+    "typescript",
+    "undo"
   ],
   "license": "MIT",
   "main": "dist/index.js",
