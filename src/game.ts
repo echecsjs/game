@@ -1,37 +1,45 @@
-import { squareToIndex } from './board.js';
-import { isInsufficientMaterial, isThreefoldRepetition } from './detection.js';
-import { type FenState, STARTING_FEN, parseFen, serialiseFen } from './fen.js';
-import {
-  applyMoveToState,
-  generateMoves,
-  isInCheck,
-  isSquareAttackedBy,
-} from './moves.js';
+import parse, { stringify } from '@echecs/fen';
+import { Position } from '@echecs/position';
 
-import type { Color, Move, Piece, Square } from './types.js';
+import { isCheckmate, isDraw, isStalemate } from './detection.js';
+import { move as applyMove, generateMoves } from './moves.js';
+
+import type {
+  Color,
+  Move,
+  Piece,
+  PromotionPieceType,
+  Square,
+} from '@echecs/position';
+
+interface MoveInput {
+  from: Square;
+  promotion?: PromotionPieceType;
+  to: Square;
+}
 
 interface HistoryEntry {
   move: Move;
-  previousState: FenState;
+  previousPosition: Position;
 }
 
 export class Game {
   #cache: { inCheck: boolean; moves: Move[] } | undefined = undefined;
   #future: HistoryEntry[] = [];
   #past: HistoryEntry[] = [];
+  #position: Position;
   #positionHistory: string[] = [];
-  #state: FenState;
 
   constructor() {
-    this.#state = parseFen(STARTING_FEN);
-    this.#positionHistory = [serialiseFen(this.#state)];
+    this.#position = new Position();
+    this.#positionHistory = [this.#position.hash];
   }
 
   get #cachedState(): { inCheck: boolean; moves: Move[] } {
     if (this.#cache === undefined) {
       this.#cache = {
-        inCheck: isInCheck(this.#state, this.#state.turn),
-        moves: generateMoves(this.#state),
+        inCheck: this.#position.isCheck,
+        moves: generateMoves(this.#position),
       };
     }
 
@@ -39,11 +47,22 @@ export class Game {
   }
 
   static fromFen(fen: string): Game {
+    const parsed = parse(fen);
+    if (!parsed) {
+      throw new Error(`Invalid FEN: ${fen}`);
+    }
+
     const game = new Game();
-    game.#state = parseFen(fen);
+    game.#position = new Position(parsed.board, {
+      castlingRights: parsed.castlingRights,
+      enPassantSquare: parsed.enPassantSquare,
+      fullmoveNumber: parsed.fullmoveNumber,
+      halfmoveClock: parsed.halfmoveClock,
+      turn: parsed.turn,
+    });
     game.#past = [];
     game.#future = [];
-    game.#positionHistory = [serialiseFen(game.#state)];
+    game.#positionHistory = [game.#position.hash];
     game.#cache = undefined;
     return game;
   }
@@ -54,8 +73,9 @@ export class Game {
     for (let rank = 1; rank <= 8; rank++) {
       const row: (Piece | undefined)[] = [];
       for (let fileCode = 0; fileCode < 8; fileCode++) {
-        // 0x88 index: (8 - rank) * 16 + fileCode
-        row.push(this.#state.board[(8 - rank) * 16 + fileCode]);
+        const file = String.fromCodePoint(('a'.codePointAt(0) ?? 0) + fileCode);
+        const square = `${file}${rank}` as Square;
+        row.push(this.#position.piece(square));
       }
       result.push(row);
     }
@@ -63,35 +83,41 @@ export class Game {
   }
 
   fen(): string {
-    return serialiseFen(this.#state);
+    return stringify({
+      board: this.#position.pieces(),
+      castlingRights: this.#position.castlingRights,
+      enPassantSquare: this.#position.enPassantSquare,
+      fullmoveNumber: this.#position.fullmoveNumber,
+      halfmoveClock: this.#position.halfmoveClock,
+      turn: this.#position.turn,
+    });
   }
 
   get(square: Square): Piece | undefined {
-    return this.#state.board[squareToIndex(square)];
+    return this.#position.piece(square);
   }
 
   history(): Move[] {
     return this.#past.map((entry) => entry.move);
   }
 
+  isAttacked(square: Square, color: Color): boolean {
+    return this.#position.isAttacked(square, color);
+  }
+
   isCheck(): boolean {
     return this.#cachedState.inCheck;
   }
 
-  isAttacked(square: Square, color: Color): boolean {
-    return isSquareAttackedBy(this.#state.board, squareToIndex(square), color);
-  }
-
   isCheckmate(): boolean {
-    return this.#cachedState.inCheck && this.#cachedState.moves.length === 0;
+    return isCheckmate(this.#position, this.#cachedState.moves);
   }
 
   isDraw(): boolean {
-    return (
-      this.#state.halfmoveClock >= 100 ||
-      isInsufficientMaterial(this.#state) ||
-      this.isStalemate() ||
-      isThreefoldRepetition(this.#positionHistory)
+    return isDraw(
+      this.#position,
+      this.#cachedState.moves,
+      this.#positionHistory,
     );
   }
 
@@ -100,25 +126,30 @@ export class Game {
   }
 
   isStalemate(): boolean {
-    return !this.#cachedState.inCheck && this.#cachedState.moves.length === 0;
+    return isStalemate(this.#position, this.#cachedState.moves);
   }
 
-  move(move: Move): this {
-    const legal = this.#cachedState.moves.filter((m) => m.from === move.from);
+  move(input: MoveInput): this {
+    const m: Move = {
+      from: input.from,
+      promotion: input.promotion ?? undefined,
+      to: input.to,
+    };
+    const legal = this.#cachedState.moves.filter((mv) => mv.from === m.from);
     const isLegal = legal.some(
-      (m) => m.to === move.to && m.promotion === move.promotion,
+      (mv) => mv.to === m.to && mv.promotion === m.promotion,
     );
 
     if (!isLegal) {
-      throw new Error(`Illegal move: ${move.from} → ${move.to}`);
+      throw new Error(`Illegal move: ${m.from} → ${m.to}`);
     }
 
     this.#cache = undefined;
-    const previousState = this.#state;
-    this.#state = applyMoveToState(this.#state, move);
-    this.#past.push({ move, previousState });
+    const previousPosition = this.#position;
+    this.#position = applyMove(this.#position, m);
+    this.#past.push({ move: m, previousPosition });
     this.#future = [];
-    this.#positionHistory.push(serialiseFen(this.#state));
+    this.#positionHistory.push(this.#position.hash);
 
     return this;
   }
@@ -131,6 +162,10 @@ export class Game {
     return this.#cachedState.moves.filter((m) => m.from === square);
   }
 
+  position(): Position {
+    return this.#position;
+  }
+
   redo(): void {
     const entry = this.#future.pop();
     if (entry === undefined) {
@@ -138,13 +173,13 @@ export class Game {
     }
 
     this.#cache = undefined;
-    this.#state = applyMoveToState(entry.previousState, entry.move);
+    this.#position = applyMove(entry.previousPosition, entry.move);
     this.#past.push(entry);
-    this.#positionHistory.push(serialiseFen(this.#state));
+    this.#positionHistory.push(this.#position.hash);
   }
 
   turn(): Color {
-    return this.#state.turn;
+    return this.#position.turn;
   }
 
   undo(): void {
@@ -154,7 +189,7 @@ export class Game {
     }
 
     this.#cache = undefined;
-    this.#state = entry.previousState;
+    this.#position = entry.previousPosition;
     this.#future.push(entry);
     this.#positionHistory.pop();
   }

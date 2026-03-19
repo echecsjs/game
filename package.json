@@ -6,10 +6,10 @@
   "description": "Chess game engine with legal move generation, check/checkmate/stalemate detection, FEN parsing, and undo/redo. Zero dependencies, strict TypeScript.",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "chess.js": "^1.4.0",
     "@typescript-eslint/parser": "^8.57.0",
     "@vitest/coverage-v8": "^4.1.0",
     "@vitest/eslint-plugin": "^1.6.12",
+    "chess.js": "^1.4.0",
     "eslint": "^10.0.3",
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^4.4.4",
@@ -63,6 +63,7 @@
     "type": "git",
     "url": "https://github.com/mormubis/game.git"
   },
+  "sideEffects": false,
   "scripts": {
     "bench": "vitest bench --run",
     "build": "tsdown",
@@ -73,12 +74,16 @@
     "lint:ci": "pnpm run lint:style --max-warnings 0 && pnpm run lint:types",
     "lint:style": "eslint \"src/**/*.{ts,tsx}\" \"*.mjs\" --fix",
     "lint:types": "tsc --noEmit --project tsconfig.json",
-    "prepare": "pnpm run build",
+    "prepare": "husky && pnpm run build",
     "test": "vitest run",
     "test:coverage": "pnpm run test --coverage",
     "test:watch": "pnpm run test --watch"
   },
   "type": "module",
   "types": "dist/index.d.ts",
-  "version": "1.1.0"
+  "version": "1.1.0",
+  "dependencies": {
+    "@echecs/fen": "file:/Users/mormubis/workspace/echecs/fen",
+    "@echecs/position": "file:/Users/mormubis/workspace/echecs/position"
+  }
 }

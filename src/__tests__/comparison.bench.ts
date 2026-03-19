@@ -1,9 +1,10 @@
+import parse, { STARTING_FEN as FEN } from '@echecs/fen';
+import { Position } from '@echecs/position';
 import { Chess } from 'chess.js';
 import { bench, describe } from 'vitest';
 
-import { STARTING_FEN as FEN, parseFen } from '../fen.js';
 import { Game } from '../game.js';
-import { applyMoveToState, generateMoves } from '../moves.js';
+import { generateMoves, move } from '../moves.js';
 
 const STARTING_FEN = FEN;
 
@@ -17,6 +18,20 @@ const CHECKMATE_FEN =
 
 // Stalemate — black has no legal moves
 const STALEMATE_FEN = 'k7/8/1QK5/8/8/8/8/8 b - - 0 1';
+
+function fromFen(fen: string): Position {
+  const parsed = parse(fen);
+  if (!parsed) {
+    throw new Error(`Invalid FEN: ${fen}`);
+  }
+  return new Position(parsed.board, {
+    castlingRights: parsed.castlingRights,
+    enPassantSquare: parsed.enPassantSquare,
+    fullmoveNumber: parsed.fullmoveNumber,
+    halfmoveClock: parsed.halfmoveClock,
+    turn: parsed.turn,
+  });
+}
 
 // ── Construction ─────────────────────────────────────────────────────────────
 
@@ -180,21 +195,19 @@ describe('isGameOver() [starting position — false]', () => {
 
 // ── Raw perft — bypasses Game cache, no FEN round-trips, exercises move generation directly ──
 
-import type { FenState } from '../fen.js';
-
-function rawPerftState(state: FenState, depth: number): number {
+function rawPerft(position: Position, depth: number): number {
   if (depth === 0) {
     return 1;
   }
 
-  const moves = generateMoves(state);
+  const moves = generateMoves(position);
   if (depth === 1) {
     return moves.length;
   }
 
   let count = 0;
-  for (const move of moves) {
-    count += rawPerftState(applyMoveToState(state, move), depth - 1);
+  for (const m of moves) {
+    count += rawPerft(move(position, m), depth - 1);
   }
 
   return count;
@@ -202,7 +215,7 @@ function rawPerftState(state: FenState, depth: number): number {
 
 describe('raw perft(3) [no cache, no FEN round-trips — pure move generation]', () => {
   bench('@echecs/game', () => {
-    rawPerftState(parseFen(STARTING_FEN), 3);
+    rawPerft(fromFen(STARTING_FEN), 3);
   });
   bench('chess.js native perft', () => {
     new Chess(STARTING_FEN).perft(3);

@@ -13,6 +13,24 @@ flat `(Piece | undefined)[64]` board array plus castling rights, en passant
 target, halfmove clock, and fullmove number — mirroring the FEN format exactly.
 Zero runtime dependencies; no SAN notation, no PGN.
 
+---
+
+## Similar Libraries
+
+Use these to cross-check output when testing:
+
+- [`chess.js`](https://www.npmjs.com/package/chess.js) — the most popular
+  TypeScript chess library; move generation, validation, check/checkmate
+  detection.
+- [`chessops`](https://www.npmjs.com/package/chessops) — TypeScript chess rules
+  and operations; supports variants.
+- [`js-chess-engine`](https://www.npmjs.com/package/js-chess-engine) — chess
+  engine with configurable AI, no dependencies.
+- [`chess.ts`](https://www.npmjs.com/package/chess.ts) — TypeScript rewrite of
+  chess.js.
+
+---
+
 Key source files:
 
 | File                                | Role                                                                                                    |
@@ -180,6 +198,8 @@ Groups, separated by a blank line, in this order:
 
 ## Architecture Notes
 
+- **ESM-only** — the package ships only ESM. Do not add a CJS build.
+
 ### Board representation
 
 The board is a flat `(Piece | undefined)[128]` array using the **0x88
@@ -296,8 +316,66 @@ uci.on('bestmove', ({ move }) => {
 
 ---
 
-## Publishing
+## Validation
 
-The package is published as `@echecs/game`. Do not manually publish. Always
-update `CHANGELOG.md` alongside any version bump. Bump patch for fixes, minor
-for new features, major for breaking changes.
+Input validation is mostly provided by TypeScript's strict type system at compile
+time. There is no runtime validation library — the type signatures enforce
+correct usage. Do not add runtime type-checking guards (e.g. `typeof` checks,
+assertion functions) unless there is an explicit trust boundary.
+
+---
+
+## Release Protocol
+
+Step-by-step process for releasing a new version. CI auto-publishes to npm when
+`version` in `package.json` changes on `main`.
+
+1. **Verify the package is clean:**
+   ```bash
+   pnpm lint && pnpm test && pnpm build
+   ```
+   Do not proceed if any step fails.
+
+2. **Decide the semver level:**
+   - `patch` — bug fixes, internal refactors with no API change
+   - `minor` — new features, new exports, non-breaking additions
+   - `major` — breaking changes to the public API
+
+3. **Update `CHANGELOG.md`** following
+   [Keep a Changelog](https://keepachangelog.com) format:
+   ```markdown
+   ## [x.y.z] - YYYY-MM-DD
+
+   ### Added
+   - …
+
+   ### Changed
+   - …
+
+   ### Fixed
+   - …
+
+   ### Removed
+   - …
+   ```
+   Include only sections that apply. Use past tense.
+
+4. **Update `README.md`** if the release introduces new public API, changes
+   usage examples, or deprecates/removes existing features.
+
+5. **Bump the version:**
+   ```bash
+   npm version <major|minor|patch> --no-git-tag-version
+   ```
+
+6. **Commit and push:**
+   ```bash
+   git add package.json CHANGELOG.md README.md
+   git commit -m "release: @echecs/game@x.y.z"
+   git push
+   ```
+
+7. **CI takes over:** GitHub Actions detects the version bump, runs
+   format → lint → test, and publishes to npm.
+
+Do not manually publish with `npm publish`.

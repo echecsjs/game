@@ -1,3 +1,4 @@
+import { Position } from '@echecs/position';
 import { describe, expect, it } from 'vitest';
 
 import { Game } from '../game.js';
@@ -99,7 +100,11 @@ describe('history()', () => {
   it('records moves', () => {
     const game = new Game().move({ from: 'e2', to: 'e4' });
     expect(game.history()).toHaveLength(1);
-    expect(game.history()[0]).toEqual({ from: 'e2', to: 'e4' });
+    expect(game.history()[0]).toEqual({
+      from: 'e2',
+      promotion: undefined,
+      to: 'e4',
+    });
   });
 
   it('excludes undone moves', () => {
@@ -166,6 +171,16 @@ describe('moves() filtered by square', () => {
     const moves = game.moves('e2');
     expect(moves).toHaveLength(2);
     expect(moves.every((m) => m.from === 'e2')).toBe(true);
+  });
+});
+
+describe('position()', () => {
+  it('returns a Position instance', () => {
+    expect(new Game().position()).toBeInstanceOf(Position);
+  });
+
+  it('position has correct turn', () => {
+    expect(new Game().position().turn).toBe('w');
   });
 });
 

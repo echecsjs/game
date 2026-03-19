@@ -1,19 +1,20 @@
+import { Position } from '@echecs/position';
 import {
   OFF_BOARD,
-  cloneBoard,
+  boardFromMap,
   indexToSquare,
   squareToIndex,
-} from './board.js';
+} from '@echecs/position/internal';
 
-import type { FenState } from './fen.js';
 import type {
+  CastlingRights,
   Color,
   Move,
   Piece,
   PieceType,
   PromotionPieceType,
   Square,
-} from './types.js';
+} from '@echecs/position';
 
 const PROMOTION_PIECES: PromotionPieceType[] = ['b', 'n', 'q', 'r'];
 
@@ -106,7 +107,7 @@ function enemyColor(color: Color): Color {
  * Does NOT consider castling (no recursion).
  * @internal
  */
-export function isSquareAttackedBy(
+function isSquareAttackedBy(
   board: (Piece | undefined)[],
   targetIndex: number,
   attackerColor: Color,
@@ -178,16 +179,17 @@ export function isSquareAttackedBy(
 }
 
 /**
- * Check if the king of `color` is currently in check.
+ * Check if the king of `color` is currently in check on the given raw board.
+ * @internal
  */
-export function isInCheck(state: FenState, color: Color): boolean {
+function isKingInCheck(board: (Piece | undefined)[], color: Color): boolean {
   let kingIndex = -1;
   for (let index = 0; index <= 119; index++) {
     if (index & OFF_BOARD) {
       continue;
     }
 
-    const piece = state.board[index];
+    const piece = board[index];
     if (piece !== undefined && piece.type === 'k' && piece.color === color) {
       kingIndex = index;
       break;
@@ -198,16 +200,19 @@ export function isInCheck(state: FenState, color: Color): boolean {
     return false;
   }
 
-  return isSquareAttackedBy(state.board, kingIndex, enemyColor(color));
+  return isSquareAttackedBy(board, kingIndex, enemyColor(color));
 }
 
 function generatePseudoLegalMovesForSquare(
-  state: FenState,
+  board: (Piece | undefined)[],
+  turn: Color,
+  enPassantSquare: Square | undefined,
+  castlingRights: CastlingRights,
   square: Square,
 ): Move[] {
   const fromIndex = squareToIndex(square);
-  const piece = state.board[fromIndex];
-  if (piece === undefined || piece.color !== state.turn) {
+  const piece = board[fromIndex];
+  if (piece === undefined || piece.color !== turn) {
     return [];
   }
 
@@ -215,16 +220,23 @@ function generatePseudoLegalMovesForSquare(
 
   switch (piece.type) {
     case 'p': {
-      generatePawnMoves(state, fromIndex, square, piece.color, moves);
+      generatePawnMoves(
+        board,
+        enPassantSquare,
+        fromIndex,
+        square,
+        piece.color,
+        moves,
+      );
       break;
     }
     case 'n': {
-      generateKnightMoves(state, fromIndex, square, piece.color, moves);
+      generateKnightMoves(board, fromIndex, square, piece.color, moves);
       break;
     }
     case 'b': {
       generateSlidingMoves(
-        state,
+        board,
         fromIndex,
         square,
         piece.color,
@@ -235,7 +247,7 @@ function generatePseudoLegalMovesForSquare(
     }
     case 'r': {
       generateSlidingMoves(
-        state,
+        board,
         fromIndex,
         square,
         piece.color,
@@ -246,7 +258,7 @@ function generatePseudoLegalMovesForSquare(
     }
     case 'q': {
       generateSlidingMoves(
-        state,
+        board,
         fromIndex,
         square,
         piece.color,
@@ -254,7 +266,7 @@ function generatePseudoLegalMovesForSquare(
         moves,
       );
       generateSlidingMoves(
-        state,
+        board,
         fromIndex,
         square,
         piece.color,
@@ -264,7 +276,14 @@ function generatePseudoLegalMovesForSquare(
       break;
     }
     case 'k': {
-      generateKingMoves(state, fromIndex, square, piece.color, moves);
+      generateKingMoves(
+        board,
+        castlingRights,
+        fromIndex,
+        square,
+        piece.color,
+        moves,
+      );
       break;
     }
   }
@@ -273,7 +292,8 @@ function generatePseudoLegalMovesForSquare(
 }
 
 function generatePawnMoves(
-  state: FenState,
+  board: (Piece | undefined)[],
+  enPassantSquare: Square | undefined,
   fromIndex: number,
   fromSquare: Square,
   color: Color,
@@ -288,7 +308,7 @@ function generatePawnMoves(
 
   // Single push
   const singleIndex = fromIndex + direction;
-  if (!(singleIndex & OFF_BOARD) && state.board[singleIndex] === undefined) {
+  if (!(singleIndex & OFF_BOARD) && board[singleIndex] === undefined) {
     const toSquare = indexToSquare(singleIndex);
     const toRow = singleIndex >> 4;
     if (toRow === promoteRow) {
@@ -296,17 +316,18 @@ function generatePawnMoves(
         moves.push({ from: fromSquare, promotion: promo, to: toSquare });
       }
     } else {
-      moves.push({ from: fromSquare, to: toSquare });
+      moves.push({ from: fromSquare, promotion: undefined, to: toSquare });
     }
 
     // Double push
     if (currentRow === startRow) {
       const doubleIndex = fromIndex + direction * 2;
-      if (
-        !(doubleIndex & OFF_BOARD) &&
-        state.board[doubleIndex] === undefined
-      ) {
-        moves.push({ from: fromSquare, to: indexToSquare(doubleIndex) });
+      if (!(doubleIndex & OFF_BOARD) && board[doubleIndex] === undefined) {
+        moves.push({
+          from: fromSquare,
+          promotion: undefined,
+          to: indexToSquare(doubleIndex),
+        });
       }
     }
   }
@@ -319,8 +340,8 @@ function generatePawnMoves(
     }
 
     const capSquare = indexToSquare(capIndex);
-    const target = state.board[capIndex];
-    const isEnPassant = state.enPassantSquare === capSquare;
+    const target = board[capIndex];
+    const isEnPassant = enPassantSquare === capSquare;
 
     if ((target !== undefined && target.color === enemy) || isEnPassant) {
       const toRow = capIndex >> 4;
@@ -329,14 +350,14 @@ function generatePawnMoves(
           moves.push({ from: fromSquare, promotion: promo, to: capSquare });
         }
       } else {
-        moves.push({ from: fromSquare, to: capSquare });
+        moves.push({ from: fromSquare, promotion: undefined, to: capSquare });
       }
     }
   }
 }
 
 function generateKnightMoves(
-  state: FenState,
+  board: (Piece | undefined)[],
   fromIndex: number,
   fromSquare: Square,
   color: Color,
@@ -348,15 +369,19 @@ function generateKnightMoves(
       continue;
     }
 
-    const target = state.board[toIndex];
+    const target = board[toIndex];
     if (target === undefined || target.color !== color) {
-      moves.push({ from: fromSquare, to: indexToSquare(toIndex) });
+      moves.push({
+        from: fromSquare,
+        promotion: undefined,
+        to: indexToSquare(toIndex),
+      });
     }
   }
 }
 
 function generateSlidingMoves(
-  state: FenState,
+  board: (Piece | undefined)[],
   fromIndex: number,
   fromSquare: Square,
   color: Color,
@@ -366,13 +391,21 @@ function generateSlidingMoves(
   for (const direction of directions) {
     let toIndex = fromIndex + direction;
     while (!(toIndex & OFF_BOARD)) {
-      const target = state.board[toIndex];
+      const target = board[toIndex];
       if (target === undefined) {
-        moves.push({ from: fromSquare, to: indexToSquare(toIndex) });
+        moves.push({
+          from: fromSquare,
+          promotion: undefined,
+          to: indexToSquare(toIndex),
+        });
       } else if (target.color === color) {
         break;
       } else {
-        moves.push({ from: fromSquare, to: indexToSquare(toIndex) });
+        moves.push({
+          from: fromSquare,
+          promotion: undefined,
+          to: indexToSquare(toIndex),
+        });
         break;
       }
 
@@ -382,7 +415,8 @@ function generateSlidingMoves(
 }
 
 function generateKingMoves(
-  state: FenState,
+  board: (Piece | undefined)[],
+  castlingRights: CastlingRights,
   fromIndex: number,
   fromSquare: Square,
   color: Color,
@@ -395,9 +429,13 @@ function generateKingMoves(
       continue;
     }
 
-    const target = state.board[toIndex];
+    const target = board[toIndex];
     if (target === undefined || target.color !== color) {
-      moves.push({ from: fromSquare, to: indexToSquare(toIndex) });
+      moves.push({
+        from: fromSquare,
+        promotion: undefined,
+        to: indexToSquare(toIndex),
+      });
     }
   }
 
@@ -409,7 +447,6 @@ function generateKingMoves(
     return;
   }
 
-  const { castlingRights } = state;
   const enemy = enemyColor(color);
 
   // Kingside castling
@@ -418,13 +455,17 @@ function generateKingMoves(
     const fIndex = squareToIndex(color === 'w' ? 'f1' : 'f8');
     const gIndex = squareToIndex(color === 'w' ? 'g1' : 'g8');
     if (
-      state.board[fIndex] === undefined &&
-      state.board[gIndex] === undefined &&
-      !isSquareAttackedBy(state.board, fromIndex, enemy) &&
-      !isSquareAttackedBy(state.board, fIndex, enemy) &&
-      !isSquareAttackedBy(state.board, gIndex, enemy)
+      board[fIndex] === undefined &&
+      board[gIndex] === undefined &&
+      !isSquareAttackedBy(board, fromIndex, enemy) &&
+      !isSquareAttackedBy(board, fIndex, enemy) &&
+      !isSquareAttackedBy(board, gIndex, enemy)
     ) {
-      moves.push({ from: fromSquare, to: indexToSquare(gIndex) });
+      moves.push({
+        from: fromSquare,
+        promotion: undefined,
+        to: indexToSquare(gIndex),
+      });
     }
   }
 
@@ -435,30 +476,98 @@ function generateKingMoves(
     const cIndex = squareToIndex(color === 'w' ? 'c1' : 'c8');
     const dIndex = squareToIndex(color === 'w' ? 'd1' : 'd8');
     if (
-      state.board[bIndex] === undefined &&
-      state.board[cIndex] === undefined &&
-      state.board[dIndex] === undefined &&
-      !isSquareAttackedBy(state.board, fromIndex, enemy) &&
-      !isSquareAttackedBy(state.board, dIndex, enemy) &&
-      !isSquareAttackedBy(state.board, cIndex, enemy)
+      board[bIndex] === undefined &&
+      board[cIndex] === undefined &&
+      board[dIndex] === undefined &&
+      !isSquareAttackedBy(board, fromIndex, enemy) &&
+      !isSquareAttackedBy(board, dIndex, enemy) &&
+      !isSquareAttackedBy(board, cIndex, enemy)
     ) {
-      moves.push({ from: fromSquare, to: indexToSquare(cIndex) });
+      moves.push({
+        from: fromSquare,
+        promotion: undefined,
+        to: indexToSquare(cIndex),
+      });
     }
   }
 }
 
 /**
- * Apply a move to a FenState, returning a new FenState.
+ * Apply a move to a raw 0x88 board array, returning a new board.
+ * Used for the legality filter — avoids constructing a Position for every pseudo-legal move.
+ * @internal
+ */
+function applyMoveToBoard(
+  board: (Piece | undefined)[],
+  m: Move,
+  enPassantSquare: Square | undefined,
+): (Piece | undefined)[] {
+  const result = [...board];
+  const fromIndex = squareToIndex(m.from);
+  const toIndex = squareToIndex(m.to);
+  const piece = result[fromIndex];
+
+  if (piece === undefined) {
+    return result;
+  }
+
+  const fromRow = fromIndex >> 4;
+  const toFile = toIndex & 0x07;
+  const isPawn = piece.type === 'p';
+  const isKing = piece.type === 'k';
+  const fromFile = fromIndex & 0x07;
+  const isCapture = result[toIndex] !== undefined;
+  const isEnPassant = isPawn && m.to === enPassantSquare && !isCapture;
+  const isCastling = isKing && Math.abs(toFile - fromFile) === 2;
+
+  // Move the piece
+  result[fromIndex] = undefined;
+
+  // Handle promotion
+  result[toIndex] =
+    isPawn && m.promotion !== undefined
+      ? { color: piece.color, type: m.promotion }
+      : piece;
+
+  // Remove en passant captured pawn
+  if (isEnPassant) {
+    const capturedPawnIndex = (fromRow << 4) | toFile;
+    result[capturedPawnIndex] = undefined;
+  }
+
+  // Handle castling rook movement
+  if (isCastling) {
+    const castleRow = piece.color === 'w' ? 7 : 0;
+    if (toFile > fromFile) {
+      // Kingside: rook moves from h-file (7) to f-file (5)
+      const rookFrom = (castleRow << 4) | 7;
+      const rookTo = (castleRow << 4) | 5;
+      result[rookTo] = result[rookFrom];
+      result[rookFrom] = undefined;
+    } else {
+      // Queenside: rook moves from a-file (0) to d-file (3)
+      const rookFrom = castleRow << 4;
+      const rookTo = (castleRow << 4) | 3;
+      result[rookTo] = result[rookFrom];
+      result[rookFrom] = undefined;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Apply a move to a Position, returning a new Position.
  * Does not validate legality — assumes the move is valid.
  */
-export function applyMoveToState(state: FenState, move: Move): FenState {
-  const board = cloneBoard(state.board);
-  const fromIndex = squareToIndex(move.from);
-  const toIndex = squareToIndex(move.to);
+function move(position: Position, m: Move): Position {
+  const board = boardFromMap(position.pieces());
+  const fromIndex = squareToIndex(m.from);
+  const toIndex = squareToIndex(m.to);
   const piece = board[fromIndex];
 
   if (piece === undefined) {
-    return state;
+    return position;
   }
 
   const fromRow = fromIndex >> 4;
@@ -471,7 +580,7 @@ export function applyMoveToState(state: FenState, move: Move): FenState {
   const isRook = piece.type === 'r';
 
   // Detect en passant capture
-  const isEnPassant = isPawn && move.to === state.enPassantSquare && !isCapture;
+  const isEnPassant = isPawn && m.to === position.enPassantSquare && !isCapture;
 
   // Detect castling (king moves 2 squares horizontally)
   const isCastling = isKing && Math.abs(toFile - fromFile) === 2;
@@ -481,15 +590,13 @@ export function applyMoveToState(state: FenState, move: Move): FenState {
 
   // Handle promotion
   board[toIndex] =
-    isPawn && move.promotion !== undefined
-      ? { color: piece.color, type: move.promotion }
+    isPawn && m.promotion !== undefined
+      ? { color: piece.color, type: m.promotion }
       : piece;
 
   // Remove en passant captured pawn
   if (isEnPassant) {
     // The captured pawn is on the same file as toIndex but same row as fromIndex
-    // White captures: toRow is one row above fromRow (lower index), captured pawn is at toFile, fromRow
-    // Black captures: toRow is one row below fromRow (higher index), captured pawn is at toFile, fromRow
     const capturedPawnIndex = (fromRow << 4) | toFile;
     board[capturedPawnIndex] = undefined;
   }
@@ -513,7 +620,7 @@ export function applyMoveToState(state: FenState, move: Move): FenState {
   }
 
   // Update castling rights
-  let { bK, bQ, wK, wQ } = state.castlingRights;
+  let { bK, bQ, wK, wQ } = position.castlingRights;
 
   if (isKing) {
     if (piece.color === 'w') {
@@ -526,7 +633,7 @@ export function applyMoveToState(state: FenState, move: Move): FenState {
   }
 
   if (isRook) {
-    switch (move.from) {
+    switch (m.from) {
       case 'a1': {
         wQ = false;
 
@@ -553,7 +660,7 @@ export function applyMoveToState(state: FenState, move: Move): FenState {
 
   // Rook captured: remove castling rights
   if (isCapture) {
-    switch (move.to) {
+    switch (m.to) {
       case 'a1': {
         wQ = false;
 
@@ -581,39 +688,53 @@ export function applyMoveToState(state: FenState, move: Move): FenState {
   const castlingRights = { bK, bQ, wK, wQ };
 
   // Update en passant square
-  // A double pawn push sets the en passant square to the skipped square
   let enPassantSquare: Square | undefined;
   if (isPawn && Math.abs(toRow - fromRow) === 2) {
-    // The skipped square is between fromRow and toRow, same file
     const epRow = (fromRow + toRow) >> 1;
     enPassantSquare = indexToSquare((epRow << 4) | fromFile);
   }
 
   // Update halfmove clock
   const halfmoveClock =
-    isPawn || isCapture || isEnPassant ? 0 : state.halfmoveClock + 1;
+    isPawn || isCapture || isEnPassant ? 0 : position.halfmoveClock + 1;
 
   // Update fullmove number
   const fullmoveNumber =
-    state.turn === 'b' ? state.fullmoveNumber + 1 : state.fullmoveNumber;
+    position.turn === 'b'
+      ? position.fullmoveNumber + 1
+      : position.fullmoveNumber;
 
   // Switch turn
-  const turn: Color = state.turn === 'w' ? 'b' : 'w';
+  const turn: Color = position.turn === 'w' ? 'b' : 'w';
 
-  return {
-    board,
+  // Build new Map<Square, Piece> from the updated board
+  const newPieces = new Map<Square, Piece>();
+  for (let index = 0; index <= 119; index++) {
+    if (index & OFF_BOARD) {
+      continue;
+    }
+
+    const p = board[index];
+    if (p !== undefined) {
+      newPieces.set(indexToSquare(index), p);
+    }
+  }
+
+  return new Position(newPieces, {
     castlingRights,
     enPassantSquare,
     fullmoveNumber,
     halfmoveClock,
     turn,
-  };
+  });
 }
 
 /**
  * Generate all legal moves for the active color, optionally filtered by square.
  */
-export function generateMoves(state: FenState, square?: Square): Move[] {
+function generateMoves(position: Position, square?: Square): Move[] {
+  const board = boardFromMap(position.pieces());
+  const { castlingRights, enPassantSquare, turn } = position;
   const pseudoMoves: Move[] = [];
 
   if (square === undefined) {
@@ -622,32 +743,50 @@ export function generateMoves(state: FenState, square?: Square): Move[] {
         continue;
       }
 
-      const piece = state.board[index];
-      if (piece === undefined || piece.color !== state.turn) {
+      const piece = board[index];
+      if (piece === undefined || piece.color !== turn) {
         continue;
       }
 
       const fromSquare = indexToSquare(index);
-      pseudoMoves.push(...generatePseudoLegalMovesForSquare(state, fromSquare));
+      pseudoMoves.push(
+        ...generatePseudoLegalMovesForSquare(
+          board,
+          turn,
+          enPassantSquare,
+          castlingRights,
+          fromSquare,
+        ),
+      );
     }
   } else {
     const fromIndex = squareToIndex(square);
-    const piece = state.board[fromIndex];
-    if (piece === undefined || piece.color !== state.turn) {
+    const piece = board[fromIndex];
+    if (piece === undefined || piece.color !== turn) {
       return [];
     }
 
-    pseudoMoves.push(...generatePseudoLegalMovesForSquare(state, square));
+    pseudoMoves.push(
+      ...generatePseudoLegalMovesForSquare(
+        board,
+        turn,
+        enPassantSquare,
+        castlingRights,
+        square,
+      ),
+    );
   }
 
   // Filter out moves that leave the king in check
   const legalMoves: Move[] = [];
-  for (const move of pseudoMoves) {
-    const next = applyMoveToState(state, move);
-    if (!isInCheck(next, state.turn)) {
-      legalMoves.push(move);
+  for (const m of pseudoMoves) {
+    const nextBoard = applyMoveToBoard(board, m, enPassantSquare);
+    if (!isKingInCheck(nextBoard, turn)) {
+      legalMoves.push(m);
     }
   }
 
   return legalMoves;
 }
+
+export { generateMoves, isSquareAttackedBy, move };
