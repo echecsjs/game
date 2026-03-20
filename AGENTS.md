@@ -1,17 +1,26 @@
 # AGENTS.md
 
-Agent guidance for the `@echecs/game` repository — a zero-dependency TypeScript
-chess game engine providing legal move generation, undo/redo, and game-state
-detection.
+Agent guidance for the `@echecs/game` repository — a TypeScript chess game
+engine depending on `@echecs/position` and `@echecs/fen`, providing legal move
+generation, undo/redo, and game-state detection.
 
 ---
 
 ## Project Overview
 
 `@echecs/game` exposes a single mutable `Game` class. The internal state is a
-flat `(Piece | undefined)[64]` board array plus castling rights, en passant
-target, halfmove clock, and fullmove number — mirroring the FEN format exactly.
-Zero runtime dependencies; no SAN notation, no PGN.
+`Position` object (from `@echecs/position`) plus castling rights, en passant
+target, halfmove clock, and fullmove number. Runtime dependencies are
+`@echecs/position` and `@echecs/fen`; no SAN notation, no PGN.
+
+---
+
+## Dependencies
+
+| Package            | Type    | Purpose                                                                                                                                    |
+| ------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@echecs/position` | Runtime | `Position` class, types (`Color`, `Piece`, `Move`, `Square`, etc.), `@echecs/position/internal` for 0x88 board utilities and attack tables |
+| `@echecs/fen`      | Runtime | FEN parsing (`parse`) and serialization (`stringify`)                                                                                      |
 
 ---
 
@@ -33,21 +42,17 @@ Use these to cross-check output when testing:
 
 Key source files:
 
-| File                                | Role                                                                                                    |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `src/index.ts`                      | Public re-exports (`Game` class + all public types)                                                     |
-| `src/game.ts`                       | `Game` class — public API, undo/redo stacks, history                                                    |
-| `src/moves.ts`                      | Legal move generation, `applyMoveToState`, `isInCheck`                                                  |
-| `src/detection.ts`                  | `isCheckmate`, `isStalemate`, `isDraw`, `isInsufficientMaterial`, `isThreefoldRepetition`               |
-| `src/fen.ts`                        | `FenState` interface, `parseFen`, `serialiseFen`, `STARTING_FEN`                                        |
-| `src/board.ts`                      | `squareToIndex`, `indexToSquare`, `rankOf`, `fileOf`, `INITIAL_BOARD`, `cloneBoard`                     |
-| `src/types.ts`                      | Exported types: `Color`, `PieceType`, `PromotionPieceType`, `Square`, `Piece`, `Move`, `CastlingRights` |
-| `src/__tests__/game.spec.ts`        | Unit tests for the `Game` class                                                                         |
-| `src/__tests__/moves.spec.ts`       | Unit tests for move generation, including perft                                                         |
-| `src/__tests__/detection.spec.ts`   | Unit tests for game-state detection                                                                     |
-| `src/__tests__/fen.spec.ts`         | Unit tests for FEN parsing and serialisation                                                            |
-| `src/__tests__/board.spec.ts`       | Unit tests for board utilities                                                                          |
-| `src/__tests__/comparison.bench.ts` | Comparative benchmarks vs `chess.js`                                                                    |
+| File                                | Role                                                                                                                                  |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/index.ts`                      | Public re-exports (`Game` class, `Position` class, and all public types from `@echecs/position`)                                      |
+| `src/game.ts`                       | `Game` class — public API, undo/redo stacks, history, wraps `Position` from `@echecs/position`                                        |
+| `src/moves.ts`                      | Legal move generation, `move` (applies move to Position), uses `@echecs/position/internal` for 0x88 board utilities and attack tables |
+| `src/detection.ts`                  | `isCheckmate`, `isStalemate`, `isDraw`, `isThreefoldRepetition` — all take `Position` + `Move[]`                                      |
+| `src/__tests__/game.spec.ts`        | Unit tests for the `Game` class                                                                                                       |
+| `src/__tests__/moves.spec.ts`       | Unit tests for move generation, including perft                                                                                       |
+| `src/__tests__/detection.spec.ts`   | Unit tests for game-state detection                                                                                                   |
+| `src/__tests__/helpers.ts`          | Test helper: `fromFen` utility for constructing Position from FEN strings                                                             |
+| `src/__tests__/comparison.bench.ts` | Comparative benchmarks vs `chess.js`                                                                                                  |
 
 ---
 
@@ -218,31 +223,26 @@ Valid squares satisfy `index & 0x88 === 0`. The other 64 slots are always
 2. **ATTACKS lookup table:** `ATTACKS[(to - from) + 119]` gives a bitmask of
    piece types that can attack along any vector in O(1), without ray tracing.
 
-`src/board.ts` provides `squareToIndex`, `indexToSquare`, and the `OFF_BOARD`
-constant. All internal code uses indices directly; the public API accepts
-`Square` strings.
+`@echecs/position/internal` provides `squareToIndex`, `indexToSquare`, and the
+`OFF_BOARD` constant. All internal code uses indices directly; the public API
+accepts `Square` strings.
 
-### FenState
+### Position (from `@echecs/position`)
 
-`FenState` (defined in `src/fen.ts`) is the complete game state passed between
-all internal modules:
+The `Position` class (from `@echecs/position`) is the complete immutable
+position state used internally by all modules:
 
-```typescript
-interface FenState {
-  board: (Piece | undefined)[];
-  castlingRights: CastlingRights;
-  enPassantSquare: Square | undefined;
-  fullmoveNumber: number;
-  halfmoveClock: number;
-  turn: Color;
-}
-```
+- Board: `Map<Square, Piece>` (public API) / 0x88 array (internal)
+- `castlingRights`, `enPassantSquare`, `fullmoveNumber`, `halfmoveClock`, `turn`
+- Attack queries: `isAttacked(square, by)`, `attackers(square, by)`
+- State queries: `isCheck`, `isInsufficientMaterial`, `isValid`, `hash`
 
-It is an internal type — not exported from `src/index.ts`.
+This replaces the old internal `FenState` interface. `Position` is an immutable
+value object — methods return new instances, never mutate.
 
 ### Move generation (`src/moves.ts`)
 
-`generateMoves(state, square?)` produces legal moves only:
+`generateMoves(position, square?)` produces legal moves only:
 
 1. Generate pseudo-legal moves per piece type for the active color.
 2. For each pseudo-legal move, apply it via `applyMoveToState` and check if the
@@ -253,13 +253,16 @@ castling moves — this breaks the infinite recursion that would otherwise occur
 when castling checks whether the king passes through an attacked square.
 
 `isSquareAttackedBy` uses the `ATTACKS[240]` and `RAYS[240]` lookup tables
-(precomputed at module load). For each enemy piece, one table lookup determines
-if that piece type can attack along the vector from the attacker to the target.
-For sliding pieces, a ray walk then checks for blockers. This is significantly
-faster than generating all attack moves and scanning them.
+(precomputed at module load), imported from `@echecs/position/internal`. For
+each enemy piece, one table lookup determines if that piece type can attack
+along the vector from the attacker to the target. For sliding pieces, a ray walk
+then checks for blockers. This is significantly faster than generating all
+attack moves and scanning them. `isSquareAttackedBy` is kept as a private
+function for the legality filter and operates on raw 0x88 board arrays to avoid
+constructing `Position` objects for every pseudo-legal move.
 
-`applyMoveToState` returns a new `FenState` (does not mutate). It handles: en
-passant pawn removal, rook relocation on castling, pawn promotion, castling
+`move(position, move)` returns a new `Position` (does not mutate). It handles:
+en passant pawn removal, rook relocation on castling, pawn promotion, castling
 rights revocation on king/rook moves, en passant target update on double pawn
 push, halfmove clock reset on captures and pawn moves.
 
@@ -269,15 +272,15 @@ Private fields:
 
 | Field              | Type                                               | Purpose                                                |
 | ------------------ | -------------------------------------------------- | ------------------------------------------------------ |
-| `#state`           | `FenState`                                         | Current board state                                    |
+| `#position`        | `Position`                                         | Current position (from `@echecs/position`)             |
 | `#cache`           | `{ inCheck: boolean; moves: Move[] } \| undefined` | Cached legal moves and check flag; cleared on mutation |
-| `#past`            | `HistoryEntry[]`                                   | Stack of played moves with previous state              |
+| `#past`            | `HistoryEntry[]`                                   | Stack of played moves with previous Position           |
 | `#future`          | `HistoryEntry[]`                                   | Stack of undone moves; cleared on `move()`             |
-| `#positionHistory` | `string[]`                                         | FEN snapshots for threefold repetition                 |
+| `#positionHistory` | `string[]`                                         | Zobrist hash snapshots for threefold repetition        |
 
-`HistoryEntry` stores `{ move, previousState }`. `undo()` restores
-`#state = entry.previousState` directly — no reversal logic needed. `redo()`
-reapplies via `applyMoveToState(entry.previousState, entry.move)`.
+`HistoryEntry` stores `{ move, previousPosition }`. `undo()` restores
+`#position = entry.previousPosition` directly — no reversal logic needed.
+`redo()` reapplies via `move(entry.previousPosition, entry.move)`.
 
 **Caching:** `#cache` is populated lazily via the private `#cachedState` getter
 on the first call to `moves()`, `isCheck()`, `isCheckmate()`, `isStalemate()`,
@@ -288,12 +291,12 @@ same position are O(1) after the first call.
 
 ### Detection (`src/detection.ts`)
 
-All detection functions in `src/detection.ts` take `FenState` and remain pure —
-no caching inside them. Caching is handled by the `Game` class, which stores
-legal moves and the check flag after each position change and invalidates on
-every `move()`, `undo()`, and `redo()`. Repeated calls to `isCheck()`,
-`isCheckmate()`, `isStalemate()`, `isDraw()`, and `moves()` from the same
-position are O(1) after the first call.
+All detection functions in `src/detection.ts` take `Position` + `Move[]` and
+remain pure — no caching inside them. Caching is handled by the `Game` class,
+which stores legal moves and the check flag after each position change and
+invalidates on every `move()`, `undo()`, and `redo()`. Repeated calls to
+`isCheck()`, `isCheckmate()`, `isStalemate()`, `isDraw()`, and `moves()` from
+the same position are O(1) after the first call.
 
 ### Interop with other ECHECS packages
 
@@ -318,10 +321,10 @@ uci.on('bestmove', ({ move }) => {
 
 ## Validation
 
-Input validation is mostly provided by TypeScript's strict type system at compile
-time. There is no runtime validation library — the type signatures enforce
-correct usage. Do not add runtime type-checking guards (e.g. `typeof` checks,
-assertion functions) unless there is an explicit trust boundary.
+Input validation is mostly provided by TypeScript's strict type system at
+compile time. There is no runtime validation library — the type signatures
+enforce correct usage. Do not add runtime type-checking guards (e.g. `typeof`
+checks, assertion functions) unless there is an explicit trust boundary.
 
 ---
 
@@ -331,9 +334,11 @@ Step-by-step process for releasing a new version. CI auto-publishes to npm when
 `version` in `package.json` changes on `main`.
 
 1. **Verify the package is clean:**
+
    ```bash
    pnpm lint && pnpm test && pnpm build
    ```
+
    Do not proceed if any step fails.
 
 2. **Decide the semver level:**
@@ -343,39 +348,47 @@ Step-by-step process for releasing a new version. CI auto-publishes to npm when
 
 3. **Update `CHANGELOG.md`** following
    [Keep a Changelog](https://keepachangelog.com) format:
+
    ```markdown
    ## [x.y.z] - YYYY-MM-DD
 
    ### Added
+
    - …
 
    ### Changed
+
    - …
 
    ### Fixed
+
    - …
 
    ### Removed
+
    - …
    ```
+
    Include only sections that apply. Use past tense.
 
 4. **Update `README.md`** if the release introduces new public API, changes
    usage examples, or deprecates/removes existing features.
 
 5. **Bump the version:**
+
    ```bash
    npm version <major|minor|patch> --no-git-tag-version
    ```
 
 6. **Commit and push:**
+
    ```bash
    git add package.json CHANGELOG.md README.md
    git commit -m "release: @echecs/game@x.y.z"
    git push
    ```
 
-7. **CI takes over:** GitHub Actions detects the version bump, runs
-   format → lint → test, and publishes to npm.
+7. **CI takes over:** GitHub Actions detects the version bump, runs format →
+   lint → test, and publishes to npm.
 
 Do not manually publish with `npm publish`.
