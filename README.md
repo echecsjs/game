@@ -9,7 +9,8 @@
 [ECHECS](https://github.com/mormubis) project.
 
 It provides a single mutable `Game` class that manages board state, generates
-legal moves, and detects game-ending conditions. Zero runtime dependencies.
+legal moves, and detects game-ending conditions. Depends on `@echecs/position`
+and `@echecs/fen` at runtime.
 
 ## Installation
 
@@ -189,21 +190,54 @@ Returns `true` if the game is over by checkmate or draw.
 ## Interop
 
 `@echecs/game` has no dependency on `@echecs/pgn` or `@echecs/uci`. The caller
-bridges them:
+bridges them.
+
+### UCI
 
 ```typescript
-import { parse } from '@echecs/pgn';
+// Feed engine moves from UCI into a Game
+uci.on('bestmove', ({ move }) => {
+  game.move({ from: move.slice(0, 2) as Square, to: move.slice(2, 4) as Square });
+});
+```
+
+### PGN
+
+`@echecs/pgn`'s `Move.from` is a disambiguation hint (`Square | File | Rank |
+undefined`), not the origin square. PGN moves encode only the destination square
+(`to`) and enough information to disambiguate which piece moves there — they do
+not carry a full origin square in every move. To replay a PGN, resolve each move
+against `game.moves()` by matching `to` and the optional disambiguation hint:
+
+```typescript
+import parse from '@echecs/pgn';
 import { Game } from '@echecs/game';
 
-// Replay a parsed PGN into a Game
 const [pgn] = parse(pgnString);
 const game = new Game();
+
 for (const [, white, black] of pgn.moves) {
-  if (white) {
-    game.move({ from: white.from, to: white.to, promotion: white.promotion });
-  }
-  if (black) {
-    game.move({ from: black.from, to: black.to, promotion: black.promotion });
+  for (const pgnMove of [white, black]) {
+    if (!pgnMove) {
+      continue;
+    }
+
+    const legal = game.moves().find((m) => {
+      if (m.to !== pgnMove.to) {
+        return false;
+      }
+
+      if (pgnMove.from === undefined) {
+        return true;
+      }
+
+      // Disambiguation: pgnMove.from is a File, Rank, or full Square
+      return m.from.startsWith(pgnMove.from) || m.from.endsWith(pgnMove.from);
+    });
+
+    if (legal) {
+      game.move({ ...legal, promotion: pgnMove.promotion?.toLowerCase() as 'n' | 'b' | 'r' | 'q' | undefined });
+    }
   }
 }
 ```
