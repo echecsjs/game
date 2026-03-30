@@ -8,6 +8,15 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- Descriptive error messages for illegal moves in `Game.move()`. Messages now
+  explain why a move is illegal: no piece on square, opponent's piece, game
+  over, piece has no legal moves, piece cannot reach target, missing promotion,
+  or promotion not allowed.
+- Explicit tests for castling rights revocation when a rook is captured on its
+  starting square (a1, h1, a8, h8).
+
 ## [1.2.0] - 2026-03-20
 
 ### Added

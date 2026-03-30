@@ -46,7 +46,7 @@ describe('move()', () => {
 
   it('throws on illegal move', () => {
     expect(() => new Game().move({ from: 'e2', to: 'e5' })).toThrow(
-      'Illegal move: e2 → e5',
+      /^Illegal move:/,
     );
   });
 
@@ -54,6 +54,54 @@ describe('move()', () => {
     const game = new Game();
     const result = game.move({ from: 'e2', to: 'e4' });
     expect(result).toBe(game);
+  });
+});
+
+describe('move() error messages', () => {
+  it('reports no piece on empty square', () => {
+    expect(() => new Game().move({ from: 'e4', to: 'e5' })).toThrow(
+      'Illegal move: no piece on e4',
+    );
+  });
+
+  it('reports opponent piece on square', () => {
+    expect(() => new Game().move({ from: 'e7', to: 'e6' })).toThrow(
+      'Illegal move: e7 is not yours',
+    );
+  });
+
+  it('reports game is over', () => {
+    const game = Game.fromFen(
+      'rnb1kbnr/pppp1ppp/4p3/8/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3',
+    );
+    expect(() => game.move({ from: 'a2', to: 'a3' })).toThrow(
+      'Illegal move: game is over',
+    );
+  });
+
+  it('reports piece has no legal moves', () => {
+    expect(() => new Game().move({ from: 'a1', to: 'a3' })).toThrow(
+      'Illegal move: a1 rook has no legal moves',
+    );
+  });
+
+  it('reports piece cannot reach target', () => {
+    expect(() => new Game().move({ from: 'e2', to: 'e5' })).toThrow(
+      'Illegal move: e2 pawn cannot move to e5',
+    );
+  });
+
+  it('reports missing promotion', () => {
+    const game = Game.fromFen('k7/4P3/8/8/8/8/8/K7 w - - 0 1');
+    expect(() => game.move({ from: 'e7', to: 'e8' })).toThrow(
+      'Illegal move: pawn must promote on e8',
+    );
+  });
+
+  it('reports promotion not allowed on non-promotion square', () => {
+    expect(() =>
+      new Game().move({ from: 'e2', promotion: 'q', to: 'e4' }),
+    ).toThrow('Illegal move: promotion not allowed on e4');
   });
 });
 

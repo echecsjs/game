@@ -141,6 +141,48 @@ describe('move (applyMoveToState equivalent)', () => {
   });
 });
 
+describe('move — castling rights on rook capture', () => {
+  it('capturing rook on a1 revokes white queenside castling', () => {
+    // Black bishop on b2, white a-pawn removed — bishop captures rook on a1
+    const position = fromFen(
+      'r3k2r/pppppppp/8/8/8/8/1bPPPPPP/R3K2R b KQkq - 0 1',
+    );
+    const next = move(position, { from: 'b2', promotion: undefined, to: 'a1' });
+    expect(next.castlingRights.wQ).toBe(false);
+    expect(next.castlingRights.wK).toBe(true);
+  });
+
+  it('capturing rook on h1 revokes white kingside castling', () => {
+    // Black queen on h3, white g and h pawns removed — queen captures rook on h1
+    const position = fromFen(
+      'r3k2r/pppppppp/8/8/8/7q/PPPPPP2/R3K2R b KQkq - 0 1',
+    );
+    const next = move(position, { from: 'h3', promotion: undefined, to: 'h1' });
+    expect(next.castlingRights.wK).toBe(false);
+    expect(next.castlingRights.wQ).toBe(true);
+  });
+
+  it('capturing rook on a8 revokes black queenside castling', () => {
+    // White queen on a3, black a-pawn removed — queen captures rook on a8
+    const position = fromFen(
+      'r3k2r/1ppppppp/8/8/8/Q7/PPPPPPPP/R3K2R w KQkq - 0 1',
+    );
+    const next = move(position, { from: 'a3', promotion: undefined, to: 'a8' });
+    expect(next.castlingRights.bQ).toBe(false);
+    expect(next.castlingRights.bK).toBe(true);
+  });
+
+  it('capturing rook on h8 revokes black kingside castling', () => {
+    // White queen on h3, black g and h pawns removed — queen captures rook on h8
+    const position = fromFen(
+      'r3k2r/pppppp2/8/8/8/7Q/PPPPPPPP/R3K2R w KQkq - 0 1',
+    );
+    const next = move(position, { from: 'h3', promotion: undefined, to: 'h8' });
+    expect(next.castlingRights.bK).toBe(false);
+    expect(next.castlingRights.bQ).toBe(true);
+  });
+});
+
 // Pass Position directly — avoids FEN round-trip overhead per node,
 // making depth-4 positions feasible within test time.
 function perft(position: Position, depth: number): number {

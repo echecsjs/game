@@ -8,9 +8,19 @@ import type {
   Color,
   Move,
   Piece,
+  PieceType,
   PromotionPieceType,
   Square,
 } from '@echecs/position';
+
+const PIECE_NAMES: Record<PieceType, string> = {
+  b: 'bishop',
+  k: 'king',
+  n: 'knight',
+  p: 'pawn',
+  q: 'queen',
+  r: 'rook',
+};
 
 interface MoveInput {
   from: Square;
@@ -44,6 +54,39 @@ export class Game {
     }
 
     return this.#cache;
+  }
+
+  #illegalMoveReason(m: Move, legalFromSquare: Move[]): string {
+    const piece = this.#position.piece(m.from);
+
+    if (piece === undefined) {
+      return `Illegal move: no piece on ${m.from}`;
+    }
+
+    if (piece.color !== this.#position.turn) {
+      return `Illegal move: ${m.from} is not yours`;
+    }
+
+    if (this.isGameOver()) {
+      return 'Illegal move: game is over';
+    }
+
+    if (legalFromSquare.length === 0) {
+      return `Illegal move: ${m.from} ${PIECE_NAMES[piece.type]} has no legal moves`;
+    }
+
+    const toMatches = legalFromSquare.filter((mv) => mv.to === m.to);
+    if (toMatches.length === 0) {
+      return `Illegal move: ${m.from} ${PIECE_NAMES[piece.type]} cannot move to ${m.to}`;
+    }
+
+    const promotionRequired = toMatches.some(
+      (mv) => mv.promotion !== undefined,
+    );
+
+    return promotionRequired
+      ? `Illegal move: pawn must promote on ${m.to}`
+      : `Illegal move: promotion not allowed on ${m.to}`;
   }
 
   static fromFen(fen: string): Game {
@@ -135,13 +178,15 @@ export class Game {
       promotion: input.promotion,
       to: input.to,
     };
-    const legal = this.#cachedState.moves.filter((mv) => mv.from === m.from);
-    const isLegal = legal.some(
+    const legalFromSquare = this.#cachedState.moves.filter(
+      (mv) => mv.from === m.from,
+    );
+    const isLegal = legalFromSquare.some(
       (mv) => mv.to === m.to && mv.promotion === m.promotion,
     );
 
     if (!isLegal) {
-      throw new Error(`Illegal move: ${m.from} → ${m.to}`);
+      throw new Error(this.#illegalMoveReason(m, legalFromSquare));
     }
 
     this.#cache = undefined;
