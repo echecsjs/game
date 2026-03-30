@@ -81,7 +81,7 @@
   },
   "type": "module",
   "types": "dist/index.d.ts",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "dependencies": {
     "@echecs/fen": "file:/Users/mormubis/workspace/echecs/fen",
     "@echecs/position": "file:/Users/mormubis/workspace/echecs/position"

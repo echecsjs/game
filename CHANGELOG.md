@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-03-30
+
 ### Added
 
 - Descriptive error messages for illegal moves in `Game.move()`. Messages now
