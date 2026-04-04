@@ -1,4 +1,5 @@
 export { Game } from './game.js';
+export type { MoveInput } from './game.js';
 export { Position } from '@echecs/position';
 export type {
   CastlingRights,

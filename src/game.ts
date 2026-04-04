@@ -22,7 +22,11 @@ const PIECE_NAMES: Record<PieceType, string> = {
   r: 'rook',
 };
 
-interface MoveInput {
+/**
+ * Input shape for {@link Game.move}. Requires an origin and destination
+ * square, plus an optional promotion piece type for pawn promotions.
+ */
+export interface MoveInput {
   from: Square;
   promotion?: PromotionPieceType;
   to: Square;
@@ -33,6 +37,18 @@ interface HistoryEntry {
   previousPosition: Position;
 }
 
+/**
+ * A mutable chess game with legal move generation, undo/redo, and
+ * game-state detection.
+ *
+ * @example
+ * ```typescript
+ * const game = new Game();
+ * game.move({ from: 'e2', to: 'e4' });
+ * game.move({ from: 'e7', to: 'e5' });
+ * game.moves('d1'); // legal queen moves
+ * ```
+ */
 export class Game {
   #cache: { inCheck: boolean; moves: Move[] } | undefined = undefined;
   #future: HistoryEntry[] = [];
@@ -40,6 +56,7 @@ export class Game {
   #position: Position;
   #positionHistory: string[] = [];
 
+  /** Creates a new game from the standard starting position. */
   constructor() {
     this.#position = new Position();
     this.#positionHistory = [this.#position.hash];
@@ -89,6 +106,19 @@ export class Game {
       : `Illegal move: promotion not allowed on ${m.to}`;
   }
 
+  /**
+   * Creates a game from an arbitrary FEN string.
+   *
+   * @throws Error if the FEN string is invalid.
+   *
+   * @example
+   * ```typescript
+   * const game = Game.fromFen(
+   *   'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1',
+   * );
+   * game.turn(); // 'b'
+   * ```
+   */
   static fromFen(fen: string): Game {
     const parsed = parse(fen);
     if (!parsed) {
@@ -110,6 +140,17 @@ export class Game {
     return game;
   }
 
+  /**
+   * Returns the board as an 8x8 array of `Piece | undefined`, indexed
+   * `[rank][file]` with `board()[0]` = rank 1 (a1-h1) and `board()[7]`
+   * = rank 8.
+   *
+   * @example
+   * ```typescript
+   * const game = new Game();
+   * game.board()[0]?.[4]; // { color: 'w', type: 'k' } (e1)
+   * ```
+   */
   board(): (Piece | undefined)[][] {
     const result: (Piece | undefined)[][] = [];
     // rank 0 → rank 1 (a1-h1), rank 7 → rank 8 (a8-h8) — matches original API
@@ -125,6 +166,7 @@ export class Game {
     return result;
   }
 
+  /** Returns the current position as a FEN string. */
   fen(): string {
     return stringify({
       board: this.#position.pieces(),
@@ -136,26 +178,59 @@ export class Game {
     });
   }
 
+  /**
+   * Returns the piece on the given square, or `undefined` if the square
+   * is empty.
+   *
+   * @example
+   * ```typescript
+   * const game = new Game();
+   * game.get('e1'); // { color: 'w', type: 'k' }
+   * game.get('e4'); // undefined
+   * ```
+   */
   get(square: Square): Piece | undefined {
     return this.#position.piece(square);
   }
 
+  /**
+   * Returns the list of moves played so far. Undone moves are not
+   * included.
+   */
   history(): Move[] {
     return this.#past.map((entry) => entry.move);
   }
 
+  /**
+   * Returns `true` if any piece of the given color attacks the square.
+   * The square does not need to be empty — it may contain a piece of
+   * either color. Pinned pieces still count as attacking.
+   *
+   * @example
+   * ```typescript
+   * const game = new Game();
+   * game.isAttacked('f3', 'w'); // true — white pawn on g2 attacks f3
+   * game.isAttacked('f6', 'b'); // true — black pawn on g7 attacks f6
+   * ```
+   */
   isAttacked(square: Square, color: Color): boolean {
     return this.#position.isAttacked(square, color);
   }
 
+  /** Returns `true` if the active color's king is in check. */
   isCheck(): boolean {
     return this.#cachedState.inCheck;
   }
 
+  /** Returns `true` if the active color is in checkmate. */
   isCheckmate(): boolean {
     return isCheckmate(this.#position, this.#cachedState.moves);
   }
 
+  /**
+   * Returns `true` if the position is a draw by any of: 50-move rule,
+   * insufficient material, stalemate, or threefold repetition.
+   */
   isDraw(): boolean {
     return isDraw(
       this.#position,
@@ -164,14 +239,34 @@ export class Game {
     );
   }
 
+  /** Returns `true` if the game is over by checkmate or draw. */
   isGameOver(): boolean {
     return this.isCheckmate() || this.isDraw();
   }
 
+  /**
+   * Returns `true` if the active color has no legal moves and is not in
+   * check.
+   */
   isStalemate(): boolean {
     return isStalemate(this.#position, this.#cachedState.moves);
   }
 
+  /**
+   * Applies a move and returns `this` for chaining. Clears the redo
+   * stack.
+   *
+   * @throws Error if the move is illegal, with a descriptive message
+   * explaining why.
+   *
+   * @example
+   * ```typescript
+   * const game = new Game();
+   * game.move({ from: 'e2', to: 'e4' }).move({ from: 'e7', to: 'e5' });
+   * // promotion
+   * game.move({ from: 'e7', to: 'e8', promotion: 'q' });
+   * ```
+   */
   move(input: MoveInput): this {
     const m: Move = {
       from: input.from,
@@ -199,6 +294,17 @@ export class Game {
     return this;
   }
 
+  /**
+   * Returns all legal moves for the active color. If a square is given,
+   * returns only the legal moves for the piece on that square.
+   *
+   * @example
+   * ```typescript
+   * const game = new Game();
+   * game.moves();     // all 20 legal opening moves
+   * game.moves('e2'); // [{ from: 'e2', to: 'e3' }, { from: 'e2', to: 'e4' }]
+   * ```
+   */
   moves(square?: Square): Move[] {
     if (square === undefined) {
       return this.#cachedState.moves;
@@ -207,10 +313,18 @@ export class Game {
     return this.#cachedState.moves.filter((m) => m.from === square);
   }
 
+  /** Returns the underlying {@link Position} object. */
   position(): Position {
     return this.#position;
   }
 
+  /**
+   * Steps forward one move after an {@link undo}. No-op if there is
+   * nothing to redo.
+   *
+   * @remarks The redo stack is cleared whenever a new {@link move} is
+   * made.
+   */
   redo(): void {
     const entry = this.#future.pop();
     if (entry === undefined) {
@@ -223,10 +337,12 @@ export class Game {
     this.#positionHistory.push(this.#position.hash);
   }
 
+  /** Returns the color whose turn it is to move: `'w'` or `'b'`. */
   turn(): Color {
     return this.#position.turn;
   }
 
+  /** Steps back one move. No-op at the start of the game. */
   undo(): void {
     const entry = this.#past.pop();
     if (entry === undefined) {
