@@ -8,6 +8,14 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-04-04
+
+### Added
+
+- TSDoc comments on all public methods and the `Game` class itself, with
+  examples, `@throws`, and `@remarks` where applicable.
+- Exported `MoveInput` interface as a public type.
+
 ## [1.2.1] - 2026-03-30
 
 ### Added
