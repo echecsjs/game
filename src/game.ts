@@ -5,16 +5,7 @@ import { positionFromFen, positionToFen } from './fen.js';
 import { move as applyMove, generateMoves } from './moves.js';
 
 import type { Move, PromotionPieceType } from './types.js';
-import type { Color, Piece, PieceType, Square } from '@echecs/position';
-
-const PIECE_NAMES: Record<PieceType, string> = {
-  bishop: 'bishop',
-  king: 'king',
-  knight: 'knight',
-  pawn: 'pawn',
-  queen: 'queen',
-  rook: 'rook',
-};
+import type { Color, Piece, Square } from '@echecs/position';
 
 /**
  * Input shape for {@link Game.move}. Requires an origin and destination
@@ -83,12 +74,12 @@ export class Game {
     }
 
     if (legalFromSquare.length === 0) {
-      return `Illegal move: ${m.from} ${PIECE_NAMES[piece.type]} has no legal moves`;
+      return `Illegal move: ${m.from} ${piece.type} has no legal moves`;
     }
 
     const toMatches = legalFromSquare.filter((mv) => mv.to === m.to);
     if (toMatches.length === 0) {
-      return `Illegal move: ${m.from} ${PIECE_NAMES[piece.type]} cannot move to ${m.to}`;
+      return `Illegal move: ${m.from} ${piece.type} cannot move to ${m.to}`;
     }
 
     const promotionRequired = toMatches.some(
@@ -110,7 +101,7 @@ export class Game {
    * const game = Game.fromFen(
    *   'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1',
    * );
-   * game.turn(); // 'b'
+   * game.turn(); // 'black'
    * ```
    */
   static fromFen(fen: string): Game {
@@ -136,7 +127,7 @@ export class Game {
    * @example
    * ```typescript
    * const game = new Game();
-   * game.board()[0]?.[4]; // { color: 'w', type: 'k' } (e1)
+   * game.board()[0]?.[4]; // { color: 'white', type: 'king' } (e1)
    * ```
    */
   board(): (Piece | undefined)[][] {
@@ -166,7 +157,7 @@ export class Game {
    * @example
    * ```typescript
    * const game = new Game();
-   * game.get('e1'); // { color: 'w', type: 'k' }
+   * game.get('e1'); // { color: 'white', type: 'king' }
    * game.get('e4'); // undefined
    * ```
    */
@@ -229,7 +220,7 @@ export class Game {
    * const game = new Game();
    * game.move({ from: 'e2', to: 'e4' }).move({ from: 'e7', to: 'e5' });
    * // promotion
-   * game.move({ from: 'e7', to: 'e8', promotion: 'q' });
+   * game.move({ from: 'e7', to: 'e8', promotion: 'queen' });
    * ```
    */
   move(input: MoveInput): this {
@@ -302,7 +293,7 @@ export class Game {
     this.#positionHistory.push(this.#position.hash);
   }
 
-  /** Returns the color whose turn it is to move: `'w'` or `'b'`. */
+  /** Returns the color whose turn it is to move: `'white'` or `'black'`. */
   turn(): Color {
     return this.#position.turn;
   }
