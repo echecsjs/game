@@ -113,10 +113,10 @@ describe('generateMoves — promotion', () => {
     // Black king on a8, white king on a1, white pawn on e7 — clear path to e8
     const fen = 'k7/4P3/8/8/8/8/8/K7 w - - 0 1';
     const moves = generateMoves(fromFen(fen), 'e7');
-    expect(moves).toContainEqual({ from: 'e7', to: 'e8', promotion: 'q' });
-    expect(moves).toContainEqual({ from: 'e7', to: 'e8', promotion: 'r' });
-    expect(moves).toContainEqual({ from: 'e7', to: 'e8', promotion: 'b' });
-    expect(moves).toContainEqual({ from: 'e7', to: 'e8', promotion: 'n' });
+    expect(moves).toContainEqual({ from: 'e7', to: 'e8', promotion: 'queen' });
+    expect(moves).toContainEqual({ from: 'e7', to: 'e8', promotion: 'rook' });
+    expect(moves).toContainEqual({ from: 'e7', to: 'e8', promotion: 'bishop' });
+    expect(moves).toContainEqual({ from: 'e7', to: 'e8', promotion: 'knight' });
   });
 });
 
@@ -124,8 +124,8 @@ describe('move (applyMoveToState equivalent)', () => {
   it('moves a pawn', () => {
     const position = fromFen(STARTING_FEN);
     const next = move(position, { from: 'e2', promotion: undefined, to: 'e4' });
-    expect(next.piece('e4')).toEqual({ color: 'w', type: 'p' });
-    expect(next.piece('e2')).toBeUndefined();
+    expect(next.at('e4')).toEqual({ color: 'white', type: 'pawn' });
+    expect(next.at('e2')).toBeUndefined();
   });
 
   it('sets en passant square on double pawn push', () => {
@@ -137,7 +137,7 @@ describe('move (applyMoveToState equivalent)', () => {
   it('switches turn', () => {
     const position = fromFen(STARTING_FEN);
     const next = move(position, { from: 'e2', promotion: undefined, to: 'e4' });
-    expect(next.turn).toBe('b');
+    expect(next.turn).toBe('black');
   });
 });
 
@@ -148,8 +148,8 @@ describe('move — castling rights on rook capture', () => {
       'r3k2r/pppppppp/8/8/8/8/1bPPPPPP/R3K2R b KQkq - 0 1',
     );
     const next = move(position, { from: 'b2', promotion: undefined, to: 'a1' });
-    expect(next.castlingRights.wQ).toBe(false);
-    expect(next.castlingRights.wK).toBe(true);
+    expect(next.castlingRights.white.queen).toBe(false);
+    expect(next.castlingRights.white.king).toBe(true);
   });
 
   it('capturing rook on h1 revokes white kingside castling', () => {
@@ -158,8 +158,8 @@ describe('move — castling rights on rook capture', () => {
       'r3k2r/pppppppp/8/8/8/7q/PPPPPP2/R3K2R b KQkq - 0 1',
     );
     const next = move(position, { from: 'h3', promotion: undefined, to: 'h1' });
-    expect(next.castlingRights.wK).toBe(false);
-    expect(next.castlingRights.wQ).toBe(true);
+    expect(next.castlingRights.white.king).toBe(false);
+    expect(next.castlingRights.white.queen).toBe(true);
   });
 
   it('capturing rook on a8 revokes black queenside castling', () => {
@@ -168,8 +168,8 @@ describe('move — castling rights on rook capture', () => {
       'r3k2r/1ppppppp/8/8/8/Q7/PPPPPPPP/R3K2R w KQkq - 0 1',
     );
     const next = move(position, { from: 'a3', promotion: undefined, to: 'a8' });
-    expect(next.castlingRights.bQ).toBe(false);
-    expect(next.castlingRights.bK).toBe(true);
+    expect(next.castlingRights.black.queen).toBe(false);
+    expect(next.castlingRights.black.king).toBe(true);
   });
 
   it('capturing rook on h8 revokes black kingside castling', () => {
@@ -178,8 +178,8 @@ describe('move — castling rights on rook capture', () => {
       'r3k2r/pppppp2/8/8/8/7Q/PPPPPPPP/R3K2R w KQkq - 0 1',
     );
     const next = move(position, { from: 'h3', promotion: undefined, to: 'h8' });
-    expect(next.castlingRights.bK).toBe(false);
-    expect(next.castlingRights.bQ).toBe(true);
+    expect(next.castlingRights.black.king).toBe(false);
+    expect(next.castlingRights.black.queen).toBe(true);
   });
 });
 
