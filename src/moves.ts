@@ -132,18 +132,20 @@ function generateCastlingMoves(position: Position): Move[] {
 }
 
 /**
- * Apply a move to a Position, returning a new Position.
- * Does not validate legality — assumes the move is valid.
+ * Compute only the board changes for a move (piece movement, en passant pawn
+ * removal, castling rook relocation). Does not touch castling rights, clocks,
+ * or turn. Used by the legality filter to avoid a full double-derive.
  */
-function move(position: Position, m: Move): Position {
+function boardChanges(
+  position: Position,
+  m: Move,
+): [Square, Piece | undefined][] {
   const piece = position.at(m.from);
   if (piece === undefined) {
-    return position;
+    return [];
   }
 
   const changes: [Square, Piece | undefined][] = [[m.from, undefined]];
-
-  // Remove piece from origin
 
   // Place piece (or promoted piece) on destination
   const movedPiece: Piece =
@@ -188,6 +190,25 @@ function move(position: Position, m: Move): Position {
       );
     }
   }
+
+  return changes;
+}
+
+/**
+ * Apply a move to a Position, returning a new Position.
+ * Does not validate legality — assumes the move is valid.
+ */
+function move(position: Position, m: Move): Position {
+  const piece = position.at(m.from);
+  if (piece === undefined) {
+    return position;
+  }
+
+  const changes = boardChanges(position, m);
+
+  const isCapture = position.at(m.to) !== undefined;
+  const isEnPassant =
+    piece.type === 'pawn' && m.to === position.enPassantSquare && !isCapture;
 
   // Castling rights
   let wK = position.castlingRights.white.king;
@@ -318,15 +339,14 @@ function generateMoves(position: Position, square?: Square): Move[] {
     }
   }
 
-  // Filter: discard moves that leave own king in check
-  // After move(), turn has flipped. We need to check if the side that
-  // just moved left their king in check. Build a temp position with
-  // the original turn to use isCheck.
+  // Filter: discard moves that leave own king in check.
+  // Apply only board changes (no turn flip), then check isCheck directly
+  // against the moving side — eliminates the double-derive overhead.
   const legalMoves: Move[] = [];
   for (const m of pseudoMoves) {
-    const nextPosition = move(position, m);
-    const checkPosition = nextPosition.derive({ turn: position.turn });
-    if (!checkPosition.isCheck) {
+    const changes = boardChanges(position, m);
+    const testPosition = position.derive({ changes });
+    if (!testPosition.isCheck) {
       legalMoves.push(m);
     }
   }
