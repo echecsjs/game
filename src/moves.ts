@@ -4,19 +4,9 @@ import type {
   Color,
   EnPassantSquare,
   Piece,
-  PieceType,
   Position,
   Square,
 } from '@echecs/position';
-
-const ATTACK_PIECE_TYPES: PieceType[] = [
-  'bishop',
-  'king',
-  'knight',
-  'pawn',
-  'queen',
-  'rook',
-];
 
 const PROMOTION_PIECES: PromotionPieceType[] = [
   'bishop',
@@ -30,51 +20,27 @@ function enemyColor(color: Color): Color {
 }
 
 /**
- * Check if a square is attacked by the given color on the given position.
- * Uses the reverse-reach trick: from the target square, pretend a friendly
- * piece of each type is there and call reach(). If any reached square holds
- * a matching enemy piece, the square is attacked. Fixed 6 reach() calls
- * regardless of piece count.
+ * Check if the king would be in check on the given square. Derives a
+ * position with the king moved there and reuses Position.isCheck.
  */
-function isSquareAttacked(
+function isKingAttackedOn(
   position: Position,
-  square: Square,
-  by: Color,
+  kingSquare: Square,
+  targetSquare: Square,
 ): boolean {
-  const friendly = enemyColor(by);
-
-  for (const type of ATTACK_PIECE_TYPES) {
-    const targets = position.reach(square, { color: friendly, type });
-    for (const target of targets) {
-      const piece = position.at(target);
-      if (piece === undefined || piece.color !== by) {
-        continue;
-      }
-
-      // Rook rays also detect queens
-      if (
-        type === 'rook' &&
-        (piece.type === 'rook' || piece.type === 'queen')
-      ) {
-        return true;
-      }
-
-      // Bishop rays also detect queens
-      if (
-        type === 'bishop' &&
-        (piece.type === 'bishop' || piece.type === 'queen')
-      ) {
-        return true;
-      }
-
-      // Exact match for knight, king, pawn
-      if (piece.type === type) {
-        return true;
-      }
-    }
+  const king = position.at(kingSquare);
+  if (king === undefined) {
+    return false;
   }
 
-  return false;
+  const test = position.derive({
+    changes: [
+      [kingSquare, undefined],
+      [targetSquare, king],
+    ],
+  });
+
+  return test.isCheck;
 }
 
 /**
@@ -115,7 +81,6 @@ function generatePseudoLegalMoves(position: Position, square: Square): Move[] {
 function generateCastlingMoves(position: Position): Move[] {
   const moves: Move[] = [];
   const color = position.turn;
-  const enemy = enemyColor(color);
   const rank = color === 'white' ? '1' : '8';
   const kingSquare: Square = `e${rank}` as Square;
 
@@ -126,7 +91,7 @@ function generateCastlingMoves(position: Position): Move[] {
   }
 
   // King must not be in check
-  if (isSquareAttacked(position, kingSquare, enemy)) {
+  if (position.isCheck) {
     return moves;
   }
 
@@ -143,8 +108,8 @@ function generateCastlingMoves(position: Position): Move[] {
     if (
       position.at(fSquare) === undefined &&
       position.at(gSquare) === undefined &&
-      !isSquareAttacked(position, fSquare, enemy) &&
-      !isSquareAttacked(position, gSquare, enemy)
+      !isKingAttackedOn(position, kingSquare, fSquare) &&
+      !isKingAttackedOn(position, kingSquare, gSquare)
     ) {
       moves.push({ from: kingSquare, promotion: undefined, to: gSquare });
     }
@@ -160,8 +125,8 @@ function generateCastlingMoves(position: Position): Move[] {
       position.at(bSquare) === undefined &&
       position.at(cSquare) === undefined &&
       position.at(dSquare) === undefined &&
-      !isSquareAttacked(position, cSquare, enemy) &&
-      !isSquareAttacked(position, dSquare, enemy)
+      !isKingAttackedOn(position, kingSquare, cSquare) &&
+      !isKingAttackedOn(position, kingSquare, dSquare)
     ) {
       moves.push({ from: kingSquare, promotion: undefined, to: cSquare });
     }
