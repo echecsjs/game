@@ -1,18 +1,14 @@
-import parse from '@echecs/fen';
-import { Position } from '@echecs/position';
+import { positionFromFen } from '../fen.js';
+
+import type { Position } from '@echecs/position';
 
 function fromFen(fen: string): Position {
-  const parsed = parse(fen);
-  if (!parsed) {
-    throw new Error(`Invalid FEN: ${fen}`);
+  const position = positionFromFen(fen);
+  if (position === undefined) {
+    throw new Error(`Invalid FEN in test: ${fen}`);
   }
-  return new Position(parsed.board, {
-    castlingRights: parsed.castlingRights,
-    enPassantSquare: parsed.enPassantSquare,
-    fullmoveNumber: parsed.fullmoveNumber,
-    halfmoveClock: parsed.halfmoveClock,
-    turn: parsed.turn,
-  });
+
+  return position;
 }
 
 export { fromFen };
