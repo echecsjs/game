@@ -38,6 +38,8 @@ and this project adheres to
 
 - **BREAKING:** `isAttacked()` method — removed from `Game`. Position v3 no
   longer exposes attack queries.
+- **BREAKING:** `MoveInput` type — merged into `Move` with optional `promotion`.
+  `Game.move()` now takes `Move` directly.
 
 ## [1.2.2] - 2026-04-04
 
