@@ -1,105 +1,36 @@
-import { Position } from '@echecs/position';
-import {
-  ATTACKS,
-  DIFF_OFFSET,
-  OFF_BOARD,
-  PIECE_MASKS,
-  RAYS,
-  boardFromMap,
-  indexToSquare,
-  squareToIndex,
-} from '@echecs/position/internal';
-
-import type {
-  CastlingRights,
+import type { Move, PromotionPieceType } from './types.js';
+import type { CastlingRights,
   Color,
-  Move,
+  EnPassantSquare,
   Piece,
-  PromotionPieceType,
-  Square,
-} from '@echecs/position';
+  Position,
+  Square } from '@echecs/position';
 
-const PROMOTION_PIECES: PromotionPieceType[] = ['b', 'n', 'q', 'r'];
 
-const KNIGHT_OFFSETS_0X88 = [-33, -31, -18, -14, 14, 18, 31, 33] as const;
-const BISHOP_DIRS_0X88 = [-17, -15, 15, 17] as const;
-const ROOK_DIRS_0X88 = [-16, -1, 1, 16] as const;
-const KING_OFFSETS_0X88 = [-17, -16, -15, -1, 1, 15, 16, 17] as const;
+
+const PROMOTION_PIECES: PromotionPieceType[] = [
+  'bishop',
+  'knight',
+  'queen',
+  'rook',
+];
 
 function enemyColor(color: Color): Color {
-  return color === 'w' ? 'b' : 'w';
+  return color === 'white' ? 'black' : 'white';
 }
 
 /**
- * Check if `targetIndex` is attacked by any piece of `attackerColor`.
- * Uses ATTACKS/RAYS lookup tables for O(1) piece-type check + ray blocker scan.
- * Does NOT consider castling (no recursion).
- * @internal
+ * Check if a square is attacked by the given color on the given position.
+ * For each enemy piece, checks if the target square is in its reach.
  */
-function isSquareAttackedBy(
-  board: (Piece | undefined)[],
-  targetIndex: number,
-  attackerColor: Color,
+function isSquareAttacked(
+  position: Position,
+  square: Square,
+  by: Color,
 ): boolean {
-  for (let index = 0; index <= 119; index++) {
-    if (index & OFF_BOARD) {
-      continue;
-    }
-
-    const piece = board[index];
-    if (piece === undefined || piece.color !== attackerColor) {
-      continue;
-    }
-
-    const diff = index - targetIndex;
-    const tableIndex = diff + DIFF_OFFSET;
-    const attackMask = ATTACKS[tableIndex] ?? 0;
-    if (attackMask === 0) {
-      continue;
-    }
-
-    const pieceMask = PIECE_MASKS[piece.type];
-    if ((attackMask & pieceMask) === 0) {
-      continue;
-    }
-
-    // Pawn: direction must match attacker color
-    // White pawn attacks toward lower indices (attacker index > target index → diff > 0)
-    if (piece.type === 'p') {
-      if (attackerColor === 'w' && diff <= 0) {
-        continue;
-      }
-
-      if (attackerColor === 'b' && diff >= 0) {
-        continue;
-      }
-
-      return true;
-    }
-
-    // Knight / King: no blockers
-    if (piece.type === 'n' || piece.type === 'k') {
-      return true;
-    }
-
-    // Sliding piece: walk ray and check for blockers
-    // RAYS[diff + DIFF_OFFSET] = d where diff = to - from = d * n (n >= 1) along the ray.
-    // Negating gives the step to walk from the attacker toward targetIndex.
-    const step = -(RAYS[tableIndex] ?? 0);
-    if (step === 0) {
-      continue;
-    }
-
-    let index_ = index + step;
-    while (index_ !== targetIndex) {
-      if (index_ & OFF_BOARD || board[index_] !== undefined) {
-        break;
-      }
-
-      index_ += step;
-    }
-
-    if (index_ === targetIndex) {
+  for (const [sq, piece] of position.pieces(by)) {
+    const targets = position.reach(sq, piece);
+    if (targets.includes(square)) {
       return true;
     }
   }
@@ -108,381 +39,96 @@ function isSquareAttackedBy(
 }
 
 /**
- * Check if the king of `color` is currently in check on the given raw board.
- * @internal
+ * Generate pseudo-legal moves for a piece on a square, excluding castling.
+ * Uses `position.reach()` for target squares.
  */
-function isKingInCheck(board: (Piece | undefined)[], color: Color): boolean {
-  let kingIndex = -1;
-  for (let index = 0; index <= 119; index++) {
-    if (index & OFF_BOARD) {
-      continue;
-    }
-
-    const piece = board[index];
-    if (piece !== undefined && piece.type === 'k' && piece.color === color) {
-      kingIndex = index;
-      break;
-    }
-  }
-
-  if (kingIndex === -1) {
-    return false;
-  }
-
-  return isSquareAttackedBy(board, kingIndex, enemyColor(color));
-}
-
-function generatePseudoLegalMovesForSquare(
-  board: (Piece | undefined)[],
-  turn: Color,
-  enPassantSquare: Square | undefined,
-  castlingRights: CastlingRights,
-  square: Square,
-): Move[] {
-  const fromIndex = squareToIndex(square);
-  const piece = board[fromIndex];
-  if (piece === undefined || piece.color !== turn) {
+function generatePseudoLegalMoves(position: Position, square: Square): Move[] {
+  const piece = position.at(square);
+  if (piece === undefined || piece.color !== position.turn) {
     return [];
   }
 
+  const targets = position.reach(square, piece);
   const moves: Move[] = [];
 
-  switch (piece.type) {
-    case 'p': {
-      generatePawnMoves(
-        board,
-        enPassantSquare,
-        fromIndex,
-        square,
-        piece.color,
-        moves,
-      );
-      break;
-    }
-    case 'n': {
-      generateKnightMoves(board, fromIndex, square, piece.color, moves);
-      break;
-    }
-    case 'b': {
-      generateSlidingMoves(
-        board,
-        fromIndex,
-        square,
-        piece.color,
-        BISHOP_DIRS_0X88,
-        moves,
-      );
-      break;
-    }
-    case 'r': {
-      generateSlidingMoves(
-        board,
-        fromIndex,
-        square,
-        piece.color,
-        ROOK_DIRS_0X88,
-        moves,
-      );
-      break;
-    }
-    case 'q': {
-      generateSlidingMoves(
-        board,
-        fromIndex,
-        square,
-        piece.color,
-        BISHOP_DIRS_0X88,
-        moves,
-      );
-      generateSlidingMoves(
-        board,
-        fromIndex,
-        square,
-        piece.color,
-        ROOK_DIRS_0X88,
-        moves,
-      );
-      break;
-    }
-    case 'k': {
-      generateKingMoves(
-        board,
-        castlingRights,
-        fromIndex,
-        square,
-        piece.color,
-        moves,
-      );
-      break;
+  for (const target of targets) {
+    if (piece.type === 'pawn') {
+      const rank = target[1];
+      const isPromotion = rank === '8' || rank === '1';
+      if (isPromotion) {
+        for (const promo of PROMOTION_PIECES) {
+          moves.push({ from: square, promotion: promo, to: target });
+        }
+      } else {
+        moves.push({ from: square, promotion: undefined, to: target });
+      }
+    } else {
+      moves.push({ from: square, promotion: undefined, to: target });
     }
   }
 
   return moves;
 }
 
-function generatePawnMoves(
-  board: (Piece | undefined)[],
-  enPassantSquare: Square | undefined,
-  fromIndex: number,
-  fromSquare: Square,
-  color: Color,
-  moves: Move[],
-): void {
-  const direction = color === 'w' ? -16 : 16;
-  const startRow = color === 'w' ? 6 : 1;
-  const promoteRow = color === 'w' ? 0 : 7;
-  const currentRow = fromIndex >> 4;
-  const enemy = enemyColor(color);
-  const captureOffsets = color === 'w' ? [-17, -15] : [15, 17];
-
-  // Single push
-  const singleIndex = fromIndex + direction;
-  if (!(singleIndex & OFF_BOARD) && board[singleIndex] === undefined) {
-    const toSquare = indexToSquare(singleIndex);
-    const toRow = singleIndex >> 4;
-    if (toRow === promoteRow) {
-      for (const promo of PROMOTION_PIECES) {
-        moves.push({ from: fromSquare, promotion: promo, to: toSquare });
-      }
-    } else {
-      moves.push({ from: fromSquare, promotion: undefined, to: toSquare });
-    }
-
-    // Double push
-    if (currentRow === startRow) {
-      const doubleIndex = fromIndex + direction * 2;
-      if (!(doubleIndex & OFF_BOARD) && board[doubleIndex] === undefined) {
-        moves.push({
-          from: fromSquare,
-          promotion: undefined,
-          to: indexToSquare(doubleIndex),
-        });
-      }
-    }
-  }
-
-  // Diagonal captures + en passant
-  for (const capOffset of captureOffsets) {
-    const capIndex = fromIndex + capOffset;
-    if (capIndex & OFF_BOARD) {
-      continue;
-    }
-
-    const capSquare = indexToSquare(capIndex);
-    const target = board[capIndex];
-    const isEnPassant = enPassantSquare === capSquare;
-
-    if ((target !== undefined && target.color === enemy) || isEnPassant) {
-      const toRow = capIndex >> 4;
-      if (toRow === promoteRow) {
-        for (const promo of PROMOTION_PIECES) {
-          moves.push({ from: fromSquare, promotion: promo, to: capSquare });
-        }
-      } else {
-        moves.push({ from: fromSquare, promotion: undefined, to: capSquare });
-      }
-    }
-  }
-}
-
-function generateKnightMoves(
-  board: (Piece | undefined)[],
-  fromIndex: number,
-  fromSquare: Square,
-  color: Color,
-  moves: Move[],
-): void {
-  for (const offset of KNIGHT_OFFSETS_0X88) {
-    const toIndex = fromIndex + offset;
-    if (toIndex & OFF_BOARD) {
-      continue;
-    }
-
-    const target = board[toIndex];
-    if (target === undefined || target.color !== color) {
-      moves.push({
-        from: fromSquare,
-        promotion: undefined,
-        to: indexToSquare(toIndex),
-      });
-    }
-  }
-}
-
-function generateSlidingMoves(
-  board: (Piece | undefined)[],
-  fromIndex: number,
-  fromSquare: Square,
-  color: Color,
-  directions: readonly number[],
-  moves: Move[],
-): void {
-  for (const direction of directions) {
-    let toIndex = fromIndex + direction;
-    while (!(toIndex & OFF_BOARD)) {
-      const target = board[toIndex];
-      if (target === undefined) {
-        moves.push({
-          from: fromSquare,
-          promotion: undefined,
-          to: indexToSquare(toIndex),
-        });
-      } else if (target.color === color) {
-        break;
-      } else {
-        moves.push({
-          from: fromSquare,
-          promotion: undefined,
-          to: indexToSquare(toIndex),
-        });
-        break;
-      }
-
-      toIndex += direction;
-    }
-  }
-}
-
-function generateKingMoves(
-  board: (Piece | undefined)[],
-  castlingRights: CastlingRights,
-  fromIndex: number,
-  fromSquare: Square,
-  color: Color,
-  moves: Move[],
-): void {
-  // Normal king moves
-  for (const offset of KING_OFFSETS_0X88) {
-    const toIndex = fromIndex + offset;
-    if (toIndex & OFF_BOARD) {
-      continue;
-    }
-
-    const target = board[toIndex];
-    if (target === undefined || target.color !== color) {
-      moves.push({
-        from: fromSquare,
-        promotion: undefined,
-        to: indexToSquare(toIndex),
-      });
-    }
-  }
-
-  // Castling
-  // White king is on rank 1 (row 7 in 0x88: index 112..119), black on rank 8 (row 0: index 0..7)
-  const kingRow = fromIndex >> 4;
-  const expectedRow = color === 'w' ? 7 : 0;
-  if (kingRow !== expectedRow) {
-    return;
-  }
-
-  const enemy = enemyColor(color);
-
-  // Kingside castling
-  const canKingside = color === 'w' ? castlingRights.wK : castlingRights.bK;
-  if (canKingside) {
-    const fIndex = squareToIndex(color === 'w' ? 'f1' : 'f8');
-    const gIndex = squareToIndex(color === 'w' ? 'g1' : 'g8');
-    if (
-      board[fIndex] === undefined &&
-      board[gIndex] === undefined &&
-      !isSquareAttackedBy(board, fromIndex, enemy) &&
-      !isSquareAttackedBy(board, fIndex, enemy) &&
-      !isSquareAttackedBy(board, gIndex, enemy)
-    ) {
-      moves.push({
-        from: fromSquare,
-        promotion: undefined,
-        to: indexToSquare(gIndex),
-      });
-    }
-  }
-
-  // Queenside castling
-  const canQueenside = color === 'w' ? castlingRights.wQ : castlingRights.bQ;
-  if (canQueenside) {
-    const bIndex = squareToIndex(color === 'w' ? 'b1' : 'b8');
-    const cIndex = squareToIndex(color === 'w' ? 'c1' : 'c8');
-    const dIndex = squareToIndex(color === 'w' ? 'd1' : 'd8');
-    if (
-      board[bIndex] === undefined &&
-      board[cIndex] === undefined &&
-      board[dIndex] === undefined &&
-      !isSquareAttackedBy(board, fromIndex, enemy) &&
-      !isSquareAttackedBy(board, dIndex, enemy) &&
-      !isSquareAttackedBy(board, cIndex, enemy)
-    ) {
-      moves.push({
-        from: fromSquare,
-        promotion: undefined,
-        to: indexToSquare(cIndex),
-      });
-    }
-  }
-}
-
 /**
- * Apply a move to a raw 0x88 board array, returning a new board.
- * Used for the legality filter — avoids constructing a Position for every pseudo-legal move.
- * @internal
+ * Generate castling moves for the active color.
  */
-function applyMoveToBoard(
-  board: (Piece | undefined)[],
-  m: Move,
-  enPassantSquare: Square | undefined,
-): (Piece | undefined)[] {
-  const result = [...board];
-  const fromIndex = squareToIndex(m.from);
-  const toIndex = squareToIndex(m.to);
-  const piece = result[fromIndex];
+function generateCastlingMoves(position: Position): Move[] {
+  const moves: Move[] = [];
+  const color = position.turn;
+  const enemy = enemyColor(color);
+  const rank = color === 'white' ? '1' : '8';
+  const kingSquare: Square = `e${rank}` as Square;
 
-  if (piece === undefined) {
-    return result;
+  // King must be on e1/e8
+  const king = position.at(kingSquare);
+  if (king === undefined || king.type !== 'king' || king.color !== color) {
+    return moves;
   }
 
-  const fromRow = fromIndex >> 4;
-  const toFile = toIndex & 0x07;
-  const isPawn = piece.type === 'p';
-  const isKing = piece.type === 'k';
-  const fromFile = fromIndex & 0x07;
-  const isCapture = result[toIndex] !== undefined;
-  const isEnPassant = isPawn && m.to === enPassantSquare && !isCapture;
-  const isCastling = isKing && Math.abs(toFile - fromFile) === 2;
-
-  // Move the piece
-  result[fromIndex] = undefined;
-
-  // Handle promotion
-  result[toIndex] =
-    isPawn && m.promotion !== undefined
-      ? { color: piece.color, type: m.promotion }
-      : piece;
-
-  // Remove en passant captured pawn
-  if (isEnPassant) {
-    const capturedPawnIndex = (fromRow << 4) | toFile;
-    result[capturedPawnIndex] = undefined;
+  // King must not be in check
+  if (isSquareAttacked(position, kingSquare, enemy)) {
+    return moves;
   }
 
-  // Handle castling rook movement
-  if (isCastling) {
-    const castleRow = piece.color === 'w' ? 7 : 0;
-    if (toFile > fromFile) {
-      // Kingside: rook moves from h-file (7) to f-file (5)
-      const rookFrom = (castleRow << 4) | 7;
-      const rookTo = (castleRow << 4) | 5;
-      result[rookTo] = result[rookFrom];
-      result[rookFrom] = undefined;
-    } else {
-      // Queenside: rook moves from a-file (0) to d-file (3)
-      const rookFrom = castleRow << 4;
-      const rookTo = (castleRow << 4) | 3;
-      result[rookTo] = result[rookFrom];
-      result[rookFrom] = undefined;
+  const rights =
+    color === 'white'
+      ? position.castlingRights.white
+      : position.castlingRights.black;
+
+  // Kingside
+  if (rights.king) {
+    const fSquare: Square = `f${rank}` as Square;
+    const gSquare: Square = `g${rank}` as Square;
+
+    if (
+      position.at(fSquare) === undefined &&
+      position.at(gSquare) === undefined &&
+      !isSquareAttacked(position, fSquare, enemy) &&
+      !isSquareAttacked(position, gSquare, enemy)
+    ) {
+      moves.push({ from: kingSquare, promotion: undefined, to: gSquare });
     }
   }
 
-  return result;
+  // Queenside
+  if (rights.queen) {
+    const bSquare: Square = `b${rank}` as Square;
+    const cSquare: Square = `c${rank}` as Square;
+    const dSquare: Square = `d${rank}` as Square;
+
+    if (
+      position.at(bSquare) === undefined &&
+      position.at(cSquare) === undefined &&
+      position.at(dSquare) === undefined &&
+      !isSquareAttacked(position, cSquare, enemy) &&
+      !isSquareAttacked(position, dSquare, enemy)
+    ) {
+      moves.push({ from: kingSquare, promotion: undefined, to: cSquare });
+    }
+  }
+
+  return moves;
 }
 
 /**
@@ -490,69 +136,68 @@ function applyMoveToBoard(
  * Does not validate legality — assumes the move is valid.
  */
 function move(position: Position, m: Move): Position {
-  const board = boardFromMap(position.pieces());
-  const fromIndex = squareToIndex(m.from);
-  const toIndex = squareToIndex(m.to);
-  const piece = board[fromIndex];
-
+  const piece = position.at(m.from);
   if (piece === undefined) {
     return position;
   }
 
-  const fromRow = fromIndex >> 4;
-  const toRow = toIndex >> 4;
-  const fromFile = fromIndex & 0x07;
-  const toFile = toIndex & 0x07;
-  const isCapture = board[toIndex] !== undefined;
-  const isPawn = piece.type === 'p';
-  const isKing = piece.type === 'k';
-  const isRook = piece.type === 'r';
+  const changes: [Square, Piece | undefined][] = [ [m.from, undefined]];
 
-  // Detect en passant capture
-  const isEnPassant = isPawn && m.to === position.enPassantSquare && !isCapture;
+  // Remove piece from origin
 
-  // Detect castling (king moves 2 squares horizontally)
-  const isCastling = isKing && Math.abs(toFile - fromFile) === 2;
-
-  // Move the piece
-  board[fromIndex] = undefined;
-
-  // Handle promotion
-  board[toIndex] =
-    isPawn && m.promotion !== undefined
+  // Place piece (or promoted piece) on destination
+  const movedPiece: Piece =
+    piece.type === 'pawn' && m.promotion !== undefined
       ? { color: piece.color, type: m.promotion }
       : piece;
+  changes.push([m.to, movedPiece]);
 
-  // Remove en passant captured pawn
+  // En passant capture: remove the captured pawn
+  const isCapture = position.at(m.to) !== undefined;
+  const isEnPassant =
+    piece.type === 'pawn' && m.to === position.enPassantSquare && !isCapture;
+
   if (isEnPassant) {
-    // The captured pawn is on the same file as toIndex but same row as fromIndex
-    const capturedPawnIndex = (fromRow << 4) | toFile;
-    board[capturedPawnIndex] = undefined;
+    const capturedFile = m.to[0] as string;
+    const capturedRank = m.from[1] as string;
+    const capturedSquare = `${capturedFile}${capturedRank}` as Square;
+    changes.push([capturedSquare, undefined]);
   }
 
-  // Handle castling rook movement
+  // Castling: move the rook
+  const fromFile = m.from[0];
+  const toFile = m.to[0];
+  const isCastling =
+    piece.type === 'king' &&
+    fromFile === 'e' &&
+    (toFile === 'g' || toFile === 'c');
+
   if (isCastling) {
-    const castleRow = piece.color === 'w' ? 7 : 0;
-    if (toFile > fromFile) {
-      // Kingside: rook moves from h-file (7) to f-file (5)
-      const rookFrom = (castleRow << 4) | 7;
-      const rookTo = (castleRow << 4) | 5;
-      board[rookTo] = board[rookFrom];
-      board[rookFrom] = undefined;
+    const rank = m.from[1] as string;
+    if (toFile === 'g') {
+      // Kingside
+      changes.push([`h${rank}` as Square, undefined], [
+        `f${rank}` as Square,
+        { color: piece.color, type: 'rook' },
+      ]);
     } else {
-      // Queenside: rook moves from a-file (0) to d-file (3)
-      const rookFrom = castleRow << 4;
-      const rookTo = (castleRow << 4) | 3;
-      board[rookTo] = board[rookFrom];
-      board[rookFrom] = undefined;
+      // Queenside
+      changes.push([`a${rank}` as Square, undefined], [
+        `d${rank}` as Square,
+        { color: piece.color, type: 'rook' },
+      ]);
     }
   }
 
-  // Update castling rights
-  let { bK, bQ, wK, wQ } = position.castlingRights;
+  // Castling rights
+  let wK = position.castlingRights.white.king;
+  let wQ = position.castlingRights.white.queen;
+  let bK = position.castlingRights.black.king;
+  let bQ = position.castlingRights.black.queen;
 
-  if (isKing) {
-    if (piece.color === 'w') {
+  // King moves: revoke all castling for that side
+  if (piece.type === 'king') {
+    if (piece.color === 'white') {
       wK = false;
       wQ = false;
     } else {
@@ -561,96 +206,85 @@ function move(position: Position, m: Move): Position {
     }
   }
 
-  if (isRook) {
+  // Rook moves: revoke own castling
+  if (piece.type === 'rook') {
     switch (m.from) {
       case 'a1': {
         wQ = false;
-
         break;
       }
       case 'h1': {
         wK = false;
-
         break;
       }
       case 'a8': {
         bQ = false;
-
         break;
       }
       case 'h8': {
         bK = false;
-
         break;
       }
       // No default
     }
   }
 
-  // Rook captured: remove castling rights
+  // Rook captured: revoke opponent castling
   if (isCapture) {
     switch (m.to) {
       case 'a1': {
         wQ = false;
-
         break;
       }
       case 'h1': {
         wK = false;
-
         break;
       }
       case 'a8': {
         bQ = false;
-
         break;
       }
       case 'h8': {
         bK = false;
-
         break;
       }
       // No default
     }
   }
 
-  const castlingRights = { bK, bQ, wK, wQ };
+  const castlingRights: CastlingRights = {
+    black: { king: bK, queen: bQ },
+    white: { king: wK, queen: wQ },
+  };
 
-  // Update en passant square
-  let enPassantSquare: Square | undefined;
-  if (isPawn && Math.abs(toRow - fromRow) === 2) {
-    const epRow = (fromRow + toRow) >> 1;
-    enPassantSquare = indexToSquare((epRow << 4) | fromFile);
+  // En passant square
+  let enPassantSquare: EnPassantSquare | undefined;
+  if (piece.type === 'pawn') {
+    const fromRank = m.from[1];
+    const toRank = m.to[1];
+    const rankDiff = Math.abs(Number(toRank) - Number(fromRank));
+    if (rankDiff === 2) {
+      const epRank = piece.color === 'white' ? '3' : '6';
+      enPassantSquare = `${m.from[0]}${epRank}` as EnPassantSquare;
+    }
   }
 
-  // Update halfmove clock
+  // Clocks
   const halfmoveClock =
-    isPawn || isCapture || isEnPassant ? 0 : position.halfmoveClock + 1;
+    piece.type === 'pawn' || isCapture || isEnPassant
+      ? 0
+      : position.halfmoveClock + 1;
 
-  // Update fullmove number
   const fullmoveNumber =
-    position.turn === 'b'
+    position.turn === 'black'
       ? position.fullmoveNumber + 1
       : position.fullmoveNumber;
 
-  // Switch turn
-  const turn: Color = position.turn === 'w' ? 'b' : 'w';
+  const turn = enemyColor(position.turn);
 
-  // Build new Map<Square, Piece> from the updated board
-  const newPieces = new Map<Square, Piece>();
-  for (let index = 0; index <= 119; index++) {
-    if (index & OFF_BOARD) {
-      continue;
-    }
-
-    const p = board[index];
-    if (p !== undefined) {
-      newPieces.set(indexToSquare(index), p);
-    }
-  }
-
-  return new Position(newPieces, {
+  return position.derive({
     castlingRights,
+    changes,
     enPassantSquare,
     fullmoveNumber,
     halfmoveClock,
@@ -662,55 +296,37 @@ function move(position: Position, m: Move): Position {
  * Generate all legal moves for the active color, optionally filtered by square.
  */
 function generateMoves(position: Position, square?: Square): Move[] {
-  const board = boardFromMap(position.pieces());
-  const { castlingRights, enPassantSquare, turn } = position;
   const pseudoMoves: Move[] = [];
 
   if (square === undefined) {
-    for (let index = 0; index <= 119; index++) {
-      if (index & OFF_BOARD) {
-        continue;
-      }
-
-      const piece = board[index];
-      if (piece === undefined || piece.color !== turn) {
-        continue;
-      }
-
-      const fromSquare = indexToSquare(index);
-      pseudoMoves.push(
-        ...generatePseudoLegalMovesForSquare(
-          board,
-          turn,
-          enPassantSquare,
-          castlingRights,
-          fromSquare,
-        ),
-      );
+    for (const [sq] of position.pieces(position.turn)) {
+      pseudoMoves.push(...generatePseudoLegalMoves(position, sq));
     }
+
+    pseudoMoves.push(...generateCastlingMoves(position));
   } else {
-    const fromIndex = squareToIndex(square);
-    const piece = board[fromIndex];
-    if (piece === undefined || piece.color !== turn) {
+    const piece = position.at(square);
+    if (piece === undefined || piece.color !== position.turn) {
       return [];
     }
 
-    pseudoMoves.push(
-      ...generatePseudoLegalMovesForSquare(
-        board,
-        turn,
-        enPassantSquare,
-        castlingRights,
-        square,
-      ),
-    );
+    pseudoMoves.push(...generatePseudoLegalMoves(position, square));
+
+    // Include castling if querying the king square
+    if (piece.type === 'king') {
+      pseudoMoves.push(...generateCastlingMoves(position));
+    }
   }
 
-  // Filter out moves that leave the king in check
+  // Filter: discard moves that leave own king in check
+  // After move(), turn has flipped. We need to check if the side that
+  // just moved left their king in check. Build a temp position with
+  // the original turn to use isCheck.
   const legalMoves: Move[] = [];
   for (const m of pseudoMoves) {
-    const nextBoard = applyMoveToBoard(board, m, enPassantSquare);
-    if (!isKingInCheck(nextBoard, turn)) {
+    const nextPosition = move(position, m);
+    const checkPosition = nextPosition.derive({ turn: position.turn });
+    if (!checkPosition.isCheck) {
       legalMoves.push(m);
     }
   }
