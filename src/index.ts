@@ -1,12 +1,13 @@
 export { Game } from './game.js';
+export { STARTING_POSITION, Position } from '@echecs/position';
 export type { MoveInput } from './game.js';
-export { Position } from '@echecs/position';
+export type { Move, PromotionPieceType } from './types.js';
 export type {
   CastlingRights,
   Color,
-  Move,
+  EnPassantSquare,
   Piece,
   PieceType,
-  PromotionPieceType,
+  SideCastlingRights,
   Square,
 } from '@echecs/position';
