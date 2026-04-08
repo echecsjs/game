@@ -8,7 +8,7 @@ and this project adheres to
 
 ## [Unreleased]
 
-## [2.0.0] - 2026-04-08
+## [2.0.0] - 2026-04-09
 
 ### Changed
 
@@ -21,25 +21,36 @@ and this project adheres to
   `{ wK, wQ, bK, bQ }`).
 - **BREAKING:** `PromotionPieceType` uses full words (`'queen'`, `'rook'`,
   `'bishop'`, `'knight'`) instead of single letters.
+- **BREAKING:** constructor now accepts an optional `Position` argument instead
+  of always starting from the initial position. `new Game()` still defaults to
+  the starting position; `new Game(position)` starts from any `Position`.
+- **BREAKING:** `MoveInput` type merged into `Move` with optional `promotion`.
+  `Game.move()` now takes `Move` directly.
 - Rewrote move generation to use `position.reach()` for pseudo-legal targets and
   `position.derive()` + `isCheck` for legality filtering. Removed all 0x88
   internal board manipulation.
+- `@echecs/fen` moved from runtime dependency to devDependency. FEN
+  parsing/serialization is no longer part of the public API.
 
 ### Added
 
-- `src/types.ts` — local `Move` and `PromotionPieceType` types (removed from
-  `@echecs/position` v3).
-- `src/fen.ts` — FEN conversion layer between `@echecs/fen` v1 types and
-  position v3 types.
+- Local `Move` and `PromotionPieceType` types (removed from `@echecs/position`
+  v3).
 - Re-exported `STARTING_POSITION`, `EnPassantSquare`, and `SideCastlingRights`
   from `@echecs/position`.
+- Full game playthrough test (81-move Fischer-Spassky 1972 Game 6) via
+  `@echecs/san`.
+- Zobrist hash consistency tests (move/undo cycles, transpositions).
+- Regression edge-case tests ported from chess.js.
 
 ### Removed
 
+- **BREAKING:** `Game.fromFen()` static method — construct a `Position` and pass
+  it to `new Game(position)` instead.
+- **BREAKING:** `game.fen()` method — use `@echecs/fen` directly with
+  `game.position()`.
 - **BREAKING:** `isAttacked()` method — removed from `Game`. Position v3 no
   longer exposes attack queries.
-- **BREAKING:** `MoveInput` type — merged into `Move` with optional `promotion`.
-  `Game.move()` now takes `Move` directly.
 
 ## [1.2.2] - 2026-04-04
 

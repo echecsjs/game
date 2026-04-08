@@ -83,7 +83,7 @@
   },
   "type": "module",
   "types": "dist/index.d.ts",
-  "version": "1.2.2",
+  "version": "2.0.0",
   "dependencies": {
     "@echecs/position": "^3.0.3"
   }
