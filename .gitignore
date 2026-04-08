@@ -10,3 +10,4 @@ coverage/
 # Documentation
 docs/api/*
 !docs/api/.gitkeep
+.playwright-mcp/
