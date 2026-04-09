@@ -8,6 +8,21 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-04-09
+
+### Fixed
+
+- Corrected README to match 2.0.0 API: removed nonexistent `Game.fromFen()` and
+  `game.fen()`, documented `new Game(position)` constructor, fixed `undo()` /
+  `redo()` return types (`void`, not `this`), fixed `Move.promotion` signature,
+  removed `MoveInput` from exports listing.
+- Updated `AGENTS.md` to reflect single runtime dependency (`@echecs/position`),
+  removed nonexistent `src/fen.ts`, added missing test files, removed stale
+  references to `isAttacked` / `applyMoveToState`, updated naming convention
+  examples.
+- Changed `package.json` keyword from `no-dependencies` to
+  `minimal-dependencies`.
+
 ## [2.0.0] - 2026-04-09
 
 ### Changed

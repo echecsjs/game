@@ -1,8 +1,8 @@
 # AGENTS.md
 
 Agent guidance for the `@echecs/game` repository — a TypeScript chess game
-engine depending on `@echecs/position` and `@echecs/fen`, providing legal move
-generation, undo/redo, and game-state detection.
+engine depending on `@echecs/position`, providing legal move generation,
+undo/redo, and game-state detection.
 
 **Backlog:** tracked in
 [GitHub Issues](https://github.com/mormubis/game/issues).
@@ -12,9 +12,9 @@ generation, undo/redo, and game-state detection.
 ## Project Overview
 
 `@echecs/game` exposes a single mutable `Game` class. The internal state is a
-`Position` object (from `@echecs/position`) plus castling rights, en passant
-target, halfmove clock, and fullmove number. Runtime dependencies are
-`@echecs/position` and `@echecs/fen`; no SAN notation, no PGN.
+`Position` object (from `@echecs/position`) which contains the board, castling
+rights, en passant target, halfmove clock, fullmove number, and turn. Single
+runtime dependency: `@echecs/position`. No SAN notation, no PGN.
 
 ---
 
@@ -23,7 +23,8 @@ target, halfmove clock, and fullmove number. Runtime dependencies are
 | Package            | Type    | Purpose                                                                                                                             |
 | ------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `@echecs/position` | Runtime | `Position` class, types (`Color`, `Piece`, `Square`, etc.), `reach()` for pseudo-legal targets, `derive()` for position transitions |
-| `@echecs/fen`      | Runtime | FEN parsing (`parse`) and serialization (`stringify`)                                                                               |
+| `@echecs/fen`      | Dev     | FEN parsing (`parse`) and serialization (`stringify`) — used in tests only                                                          |
+| `@echecs/san`      | Dev     | SAN move parsing — used in playthrough tests only                                                                                   |
 
 ---
 
@@ -49,13 +50,15 @@ Key source files:
 | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/index.ts`                      | Public re-exports (`Game` class, `Position` class, and all public types from `@echecs/position`)                                                                      |
 | `src/types.ts`                      | Local `Move` and `PromotionPieceType` types (removed from `@echecs/position` v3)                                                                                      |
-| `src/fen.ts`                        | FEN conversion layer between `@echecs/fen` v1 types and position v3 types                                                                                             |
 | `src/game.ts`                       | `Game` class — public API, undo/redo stacks, history, wraps `Position` from `@echecs/position`                                                                        |
 | `src/moves.ts`                      | Legal move generation, `move` (applies move to Position), uses `position.reach()` for pseudo-legal targets and `position.derive()` + `isCheck` for legality filtering |
 | `src/detection.ts`                  | `isCheckmate`, `isStalemate`, `isDraw`, `isThreefoldRepetition` — all take `Position` + `Move[]`                                                                      |
 | `src/__tests__/game.spec.ts`        | Unit tests for the `Game` class                                                                                                                                       |
 | `src/__tests__/moves.spec.ts`       | Unit tests for move generation, including perft                                                                                                                       |
 | `src/__tests__/detection.spec.ts`   | Unit tests for game-state detection                                                                                                                                   |
+| `src/__tests__/playthrough.spec.ts` | Full game playthrough test (Fischer-Spassky 1972 Game 6) via `@echecs/san`                                                                                            |
+| `src/__tests__/hash.spec.ts`        | Zobrist hash consistency tests (move/undo cycles, transpositions)                                                                                                     |
+| `src/__tests__/regression.spec.ts`  | Regression edge-case tests ported from chess.js                                                                                                                       |
 | `src/__tests__/helpers.ts`          | Test helper: `fromFen` utility for constructing Position from FEN strings                                                                                             |
 | `src/__tests__/comparison.bench.ts` | Comparative benchmarks vs `chess.js`                                                                                                                                  |
 
@@ -170,14 +173,14 @@ Groups, separated by a blank line, in this order:
 
 ## Naming Conventions
 
-| Construct              | Convention             | Examples                                            |
-| ---------------------- | ---------------------- | --------------------------------------------------- |
-| Classes                | `PascalCase`           | `Game`                                              |
-| Functions              | `camelCase`            | `generateMoves`, `parseFen`, `squareToIndex`        |
-| Types / Interfaces     | `PascalCase`           | `Color`, `Move`, `Piece`, `FenState`                |
-| Module-level constants | `SCREAMING_SNAKE_CASE` | `STARTING_FEN`, `INITIAL_BOARD`, `PROMOTION_PIECES` |
-| Variables / Parameters | `camelCase`            | `state`, `move`, `square`, `depth`                  |
-| Source files           | `camelCase.ts`         | `index.ts`, `moves.ts`, `board.ts`                  |
+| Construct              | Convention             | Examples                                      |
+| ---------------------- | ---------------------- | --------------------------------------------- |
+| Classes                | `PascalCase`           | `Game`                                        |
+| Functions              | `camelCase`            | `generateMoves`, `enemyColor`, `boardChanges` |
+| Types / Interfaces     | `PascalCase`           | `Color`, `Move`, `Piece`, `HistoryEntry`      |
+| Module-level constants | `SCREAMING_SNAKE_CASE` | `STARTING_POSITION`, `PROMOTION_PIECES`       |
+| Variables / Parameters | `camelCase`            | `state`, `move`, `square`, `depth`            |
+| Source files           | `camelCase.ts`         | `index.ts`, `moves.ts`, `game.ts`             |
 
 ---
 
@@ -225,7 +228,6 @@ position state used internally by all modules:
 
 - Board: `Map<Square, Piece>` (public API) / 0x88 array (internal)
 - `castlingRights`, `enPassantSquare`, `fullmoveNumber`, `halfmoveClock`, `turn`
-- Attack queries: `isAttacked(square, by)`, `attackers(square, by)`
 - State queries: `isCheck`, `isInsufficientMaterial`, `isValid`, `hash`
 - Piece access: `at(square)` returns `Piece | undefined`
 - Pseudo-legal targets: `reach(square)` returns target squares for the piece on
@@ -243,8 +245,9 @@ value object — `derive()` returns new instances, never mutates. `Move` and
 `generateMoves(position, square?)` produces legal moves only:
 
 1. Generate pseudo-legal moves per piece type for the active color.
-2. For each pseudo-legal move, apply it via `applyMoveToState` and check if the
-   active color's king is in check. Discard if so.
+2. For each pseudo-legal move, apply board changes via `boardChanges` +
+   `position.derive({ changes })` and check if the active color's king is in
+   check. Discard if so.
 
 `isInCheck` uses a separate `isKingAttackedOn` path that does **not** generate
 castling moves — this breaks the infinite recursion that would otherwise occur
@@ -283,10 +286,11 @@ Private fields:
 
 **Caching:** `#cache` is populated lazily via the private `#cachedState` getter
 on the first call to `moves()`, `isCheck()`, `isCheckmate()`, `isStalemate()`,
-`isDraw()`, or `isGameOver()` from a given position. It is invalidated
-(`#cache = undefined`) at the start of `move()`, `undo()`, and `redo()` — but
-only after confirming the operation is not a no-op. Repeated queries from the
-same position are O(1) after the first call.
+`isDraw()`, or `isGameOver()` from a given position. `move()` reads the cache
+for legality validation, then invalidates after applying. `undo()` and `redo()`
+check whether the history stack is empty before invalidating, so no-op calls do
+not evict the cache. Repeated queries from the same position are O(1) after the
+first call.
 
 ### Detection (`src/detection.ts`)
 

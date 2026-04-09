@@ -8,8 +8,8 @@
 [ECHECS](https://github.com/mormubis) project.
 
 It provides a single mutable `Game` class that manages board state, generates
-legal moves, and detects game-ending conditions. Depends on `@echecs/position`
-and `@echecs/fen` at runtime.
+legal moves, and detects game-ending conditions. Single runtime dependency:
+[`@echecs/position`](https://www.npmjs.com/package/@echecs/position).
 
 ## Installation
 
@@ -29,7 +29,6 @@ game.move({ from: 'e7', to: 'e5' });
 
 console.log(game.turn()); // 'white'
 console.log(game.moves()); // all legal moves for white
-console.log(game.fen()); // current position as FEN string
 ```
 
 ## API
@@ -44,15 +43,14 @@ Creates a new game from the standard starting position.
 const game = new Game();
 ```
 
-#### `Game.fromFen(fen)`
+#### `new Game(position)`
 
-Creates a game from an arbitrary FEN string. Throws `Error` if the FEN is
-invalid.
+Creates a game from an existing `Position` object (from `@echecs/position`).
 
 ```typescript
-const game = Game.fromFen(
-  'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1',
-);
+import { Position } from '@echecs/game';
+
+const game = new Game(position);
 ```
 
 ### Board queries
@@ -78,10 +76,6 @@ with `board()[0]` = rank 1 (a1–h1) and `board()[7]` = rank 8.
 ```typescript
 game.board()[0]?.[4]; // { color: 'white', type: 'king' }  (e1)
 ```
-
-#### `game.fen()`
-
-Returns the current position as a FEN string.
 
 #### `game.position()`
 
@@ -113,7 +107,7 @@ Each `Move` object has the shape:
 interface Move {
   from: Square;
   to: Square;
-  promotion: PromotionPieceType | undefined;
+  promotion?: PromotionPieceType;
 }
 ```
 
@@ -134,12 +128,12 @@ game.move({ from: 'e7', to: 'e8', promotion: 'queen' }); // promotion
 
 #### `game.undo()`
 
-Steps back one move. Returns `this`. No-op at the start of the game.
+Steps back one move. No-op at the start of the game.
 
 #### `game.redo()`
 
-Steps forward one move (after an undo). Returns `this`. No-op at the end of
-history. Cleared whenever a new `move()` is made.
+Steps forward one move (after an undo). No-op at the end of history. Cleared
+whenever a new `move()` is made.
 
 ```typescript
 game.move({ from: 'e2', to: 'e4' });
@@ -155,7 +149,7 @@ Returns the list of moves played so far. Undone moves are not included.
 
 ```typescript
 game.move({ from: 'e2', to: 'e4' });
-game.history(); // [{ from: 'e2', to: 'e4', promotion: undefined }]
+game.history(); // [{ from: 'e2', to: 'e4' }]
 ```
 
 ### State detection
@@ -201,8 +195,7 @@ import type {
   CastlingRights, // { white: SideCastlingRights, black: SideCastlingRights }
   Color, // 'white' | 'black'
   EnPassantSquare, // typed en passant target square
-  Move, // { from: Square, to: Square, promotion: PromotionPieceType | undefined }
-  MoveInput, // input shape for game.move()
+  Move, // { from: Square, to: Square, promotion?: PromotionPieceType }
   Piece, // { color: Color, type: PieceType }
   PieceType, // 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king'
   PromotionPieceType, // 'queen' | 'rook' | 'bishop' | 'knight'
