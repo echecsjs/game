@@ -1,7 +1,7 @@
 {
   "author": "Adrian de la Rosa <adrian@delarosab.me>",
   "bugs": {
-    "url": "https://github.com/mormubis/game/issues"
+    "url": "https://github.com/echecsjs/game/issues"
   },
   "description": "Chess game engine with legal move generation, check/checkmate/stalemate detection, and undo/redo. Strict TypeScript.",
   "devDependencies": {
@@ -41,7 +41,7 @@
     "README.md",
     "CHANGELOG.md"
   ],
-  "homepage": "https://github.com/mormubis/game#readme",
+  "homepage": "https://github.com/echecsjs/game#readme",
   "keywords": [
     "board",
     "checkmate",
@@ -63,7 +63,7 @@
   "name": "@echecs/game",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mormubis/game.git"
+    "url": "https://github.com/echecsjs/game.git"
   },
   "sideEffects": false,
   "scripts": {

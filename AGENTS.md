@@ -8,7 +8,7 @@ undo/redo, and game-state detection.
 [`COMPARISON.md`](COMPARISON.md) | [`SPEC.md`](SPEC.md)
 
 **Backlog:** tracked in
-[GitHub Issues](https://github.com/mormubis/game/issues).
+[GitHub Issues](https://github.com/echecsjs/game/issues).
 
 ---
 
