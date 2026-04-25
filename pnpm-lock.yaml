@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@echecs/position':
         specifier: ^3.0.3
-        version: 3.0.3
+        version: 3.0.5
     devDependencies:
       '@echecs/fen':
         specifier: ^2.0.0
@@ -121,16 +121,16 @@ packages:
     resolution: {integrity: sha512-lZRUJJpT9Rzl0jAiYN7U2Ekdis7QXe3o85GgkTKdwZOrR/E7XaOCp0pckpFIeQcJDx0emeEJ4FgfljZIOcJ+YQ==}
     engines: {node: '>=20'}
 
-  '@echecs/position@3.0.3':
-    resolution: {integrity: sha512-6QG30wBg3LT2jgf1HVWXblwwHxI5HO86D+errFNV9CAp1598qGnlm8mh2GyzOT7jvn3KythZ2JgCr/CpiBtJIA==}
+  '@echecs/position@3.0.5':
+    resolution: {integrity: sha512-YUkBF/yrIebHABZPebRHsIZGhHT6unk9WwxVE98AvoeTYfAAg+8SjpyjLstKxYqvBxyWP6SEIFj0Ad6p5zIH3Q==}
     engines: {node: '>=20'}
 
   '@echecs/san@2.0.0':
     resolution: {integrity: sha512-lz9rquhJPrADg6CAOM6icGvbNaEra3hRTQl2E+hH05cUNtfs1w8OJuR4k7rt+AuHdpc/FTNWp++wyksZ4R0OwQ==}
     engines: {node: '>=20'}
 
-  '@echecs/zobrist@1.0.0':
-    resolution: {integrity: sha512-DYAs10AA42r6p4/hNMVAX0L6CzqOI6VZ0Vasu6mDpNHsLnnSiCBdcg5mInWA58NKJxTthpEka8ZzdKeemN6izQ==}
+  '@echecs/zobrist@1.0.2':
+    resolution: {integrity: sha512-X2HtxAhP8zuiE9IaTJ0uM9kccQjGR9zseXZGnIB3zJmpCYcA3TBGiAceLqrtYgyjK4dpIOH5F+0R25bOWlW3Xg==}
     engines: {node: '>=20'}
 
   '@emnapi/core@1.9.0':
@@ -1208,12 +1208,16 @@ packages:
     resolution: {integrity: sha512-5gTmgEY/sqK6gFXLIsQNH19lWb4ebPDLA4SdLP7dsWkIXHWlG66oPuVvXSGFPppYZz8ZDZq0dYYrbHfBCVUb1Q==}
     engines: {node: '>=12'}
 
+  picomatch@4.0.4:
+    resolution: {integrity: sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==}
+    engines: {node: '>=12'}
+
   pluralize@8.0.0:
     resolution: {integrity: sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA==}
     engines: {node: '>=4'}
 
-  postcss@8.5.8:
-    resolution: {integrity: sha512-OW/rX8O/jXnm82Ey1k44pObPtdblfiuWnrd8X7GJ7emImCOstunGbXUpp7HdBrFQX6rJzn3sPT397Wp5aCwCHg==}
+  postcss@8.5.10:
+    resolution: {integrity: sha512-pMMHxBOZKFU6HgAZ4eyGnwXF/EvPGGqUr0MnZ5+99485wwW41kW91A4LOGxSHhgugZmSChL5AlElNdwlNgcnLQ==}
     engines: {node: ^10 || ^12 || >=14}
 
   prelude-ls@1.2.1:
@@ -1353,6 +1357,10 @@ packages:
 
   tinyglobby@0.2.15:
     resolution: {integrity: sha512-j2Zq4NyQYG5XMST4cbs02Ak8iJUdxRM0XI5QyxXuZOzKOINmWurp3smXu3y5wDcJrptwpSjgXHzIQxR0omXljQ==}
+    engines: {node: '>=12.0.0'}
+
+  tinyglobby@0.2.16:
+    resolution: {integrity: sha512-pn99VhoACYR8nFHhxqix+uvsbXineAasWm5ojXoN8xEwK5Kd3/TrhNn1wByuD52UxWRLy8pu+kRMniEi6Eq9Zg==}
     engines: {node: '>=12.0.0'}
 
   tinyrainbow@3.1.0:
@@ -1597,15 +1605,15 @@ snapshots:
 
   '@echecs/fen@2.0.0': {}
 
-  '@echecs/position@3.0.3':
+  '@echecs/position@3.0.5':
     dependencies:
-      '@echecs/zobrist': 1.0.0
+      '@echecs/zobrist': 1.0.2
 
   '@echecs/san@2.0.0':
     dependencies:
-      '@echecs/position': 3.0.3
+      '@echecs/position': 3.0.5
 
-  '@echecs/zobrist@1.0.0': {}
+  '@echecs/zobrist@1.0.2': {}
 
   '@emnapi/core@1.9.0':
     dependencies:
@@ -2311,6 +2319,10 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.3
 
+  fdir@6.5.0(picomatch@4.0.4):
+    optionalDependencies:
+      picomatch: 4.0.4
+
   file-entry-cache@8.0.0:
     dependencies:
       flat-cache: 4.0.1
@@ -2577,9 +2589,11 @@ snapshots:
 
   picomatch@4.0.3: {}
 
+  picomatch@4.0.4: {}
+
   pluralize@8.0.0: {}
 
-  postcss@8.5.8:
+  postcss@8.5.10:
     dependencies:
       nanoid: 3.3.11
       picocolors: 1.1.1
@@ -2710,6 +2724,11 @@ snapshots:
       fdir: 6.5.0(picomatch@4.0.3)
       picomatch: 4.0.3
 
+  tinyglobby@0.2.16:
+    dependencies:
+      fdir: 6.5.0(picomatch@4.0.4)
+      picomatch: 4.0.4
+
   tinyrainbow@3.1.0: {}
 
   tree-kill@1.2.2: {}
@@ -2823,10 +2842,10 @@ snapshots:
     dependencies:
       '@oxc-project/runtime': 0.115.0
       lightningcss: 1.32.0
-      picomatch: 4.0.3
-      postcss: 8.5.8
+      picomatch: 4.0.4
+      postcss: 8.5.10
       rolldown: 1.0.0-rc.9
-      tinyglobby: 0.2.15
+      tinyglobby: 0.2.16
     optionalDependencies:
       fsevents: 2.3.3
       yaml: 2.8.2
