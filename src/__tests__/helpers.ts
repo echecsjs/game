@@ -1,4 +1,4 @@
-import parse from '@echecs/fen';
+import { parse } from '@echecs/fen';
 import { Position } from '@echecs/position';
 
 function fromFen(fen: string): Position {
