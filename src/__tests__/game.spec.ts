@@ -263,6 +263,94 @@ describe('position()', () => {
   });
 });
 
+describe('undo() return value', () => {
+  it('returns undefined when nothing to undo', () => {
+    const game = new Game();
+    expect(game.undo()).toBeUndefined();
+  });
+
+  it('returns reversed MoveResult for a normal move', () => {
+    const game = new Game();
+    game.move({ from: 'e2', to: 'e4' });
+    const result = game.undo();
+    expect(result).toEqual({
+      from: 'e4',
+      to: 'e2',
+      piece: { color: 'white', type: 'pawn' },
+    });
+  });
+
+  it('returns reversed MoveResult for castling', () => {
+    const game = new Game(
+      fromFen('r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1'),
+    );
+    game.move({ from: 'e1', to: 'g1' });
+    const result = game.undo();
+    expect(result).toEqual({
+      from: 'g1',
+      to: 'e1',
+      piece: { color: 'white', type: 'king' },
+      castling: {
+        from: 'f1',
+        to: 'h1',
+        piece: { color: 'white', type: 'rook' },
+      },
+    });
+  });
+
+  it('returns reversed MoveResult for promotion (piece is the promoted piece)', () => {
+    const game = new Game(fromFen('k7/4P3/8/8/8/8/8/K7 w - - 0 1'));
+    game.move({ from: 'e7', to: 'e8', promotion: 'queen' });
+    const result = game.undo();
+    expect(result).toEqual({
+      from: 'e8',
+      to: 'e7',
+      piece: { color: 'white', type: 'queen' },
+    });
+  });
+
+  it('omits captured on undo', () => {
+    const game = new Game();
+    game.move({ from: 'e2', to: 'e4' });
+    game.move({ from: 'd7', to: 'd5' });
+    game.move({ from: 'e4', to: 'd5' });
+    const result = game.undo();
+    expect(result?.captured).toBeUndefined();
+  });
+});
+
+describe('redo() return value', () => {
+  it('returns undefined when nothing to redo', () => {
+    const game = new Game();
+    expect(game.redo()).toBeUndefined();
+  });
+
+  it('returns the forward MoveResult', () => {
+    const game = new Game();
+    game.move({ from: 'e2', to: 'e4' });
+    game.undo();
+    const result = game.redo();
+    expect(result).toEqual({
+      from: 'e2',
+      to: 'e4',
+      piece: { color: 'white', type: 'pawn' },
+    });
+  });
+
+  it('returns forward MoveResult with capture info', () => {
+    const game = new Game();
+    game.move({ from: 'e2', to: 'e4' });
+    game.move({ from: 'd7', to: 'd5' });
+    game.move({ from: 'e4', to: 'd5' });
+    game.undo();
+    const result = game.redo();
+    expect(result?.captured).toEqual({
+      square: 'd5',
+      piece: { color: 'black', type: 'pawn' },
+    });
+  });
+});
+
 // Regression tests — ported from chess.js regression.test.ts
 // https://github.com/jhlywa/chess.js/blob/master/__tests__/regression.test.ts
 

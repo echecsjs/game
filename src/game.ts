@@ -6,6 +6,24 @@ import { move as applyMove, generateMoves } from './moves.js';
 import type { Move, MoveResult } from './types.js';
 import type { Color, Piece, Square } from '@echecs/position';
 
+function reverseMoveResult(result: MoveResult): MoveResult {
+  const reversed: MoveResult = {
+    from: result.to,
+    piece: result.promotion ?? result.piece,
+    to: result.from,
+  };
+
+  if (result.castling) {
+    reversed.castling = {
+      from: result.castling.to,
+      piece: result.castling.piece,
+      to: result.castling.from,
+    };
+  }
+
+  return reversed;
+}
+
 interface HistoryEntry {
   move: Move;
   previousPosition: Position;
@@ -243,10 +261,10 @@ export class Game {
    * @remarks The redo stack is cleared whenever a new {@link move} is
    * made.
    */
-  redo(): void {
+  redo(): MoveResult | undefined {
     const entry = this.#future.pop();
     if (entry === undefined) {
-      return;
+      return undefined;
     }
 
     this.#cache = undefined;
@@ -254,6 +272,8 @@ export class Game {
     this.#position = position;
     this.#past.push(entry);
     this.#positionHistory.push(this.#position.hash);
+
+    return entry.result;
   }
 
   /** Returns the color whose turn it is to move: `'white'` or `'black'`. */
@@ -262,15 +282,17 @@ export class Game {
   }
 
   /** Steps back one move. No-op at the start of the game. */
-  undo(): void {
+  undo(): MoveResult | undefined {
     const entry = this.#past.pop();
     if (entry === undefined) {
-      return;
+      return undefined;
     }
 
     this.#cache = undefined;
     this.#position = entry.previousPosition;
     this.#future.push(entry);
     this.#positionHistory.pop();
+
+    return reverseMoveResult(entry.result);
   }
 }
