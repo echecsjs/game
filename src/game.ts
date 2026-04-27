@@ -3,12 +3,13 @@ import { Position, STARTING_POSITION } from '@echecs/position';
 import { isCheckmate, isDraw, isStalemate } from './detection.js';
 import { move as applyMove, generateMoves } from './moves.js';
 
-import type { Move } from './types.js';
+import type { Move, MoveResult } from './types.js';
 import type { Color, Piece, Square } from '@echecs/position';
 
 interface HistoryEntry {
   move: Move;
   previousPosition: Position;
+  result: MoveResult;
 }
 
 /**
@@ -173,8 +174,8 @@ export class Game {
   }
 
   /**
-   * Applies a move and returns `this` for chaining. Clears the redo
-   * stack.
+   * Applies a move and returns a {@link MoveResult} describing what happened.
+   * Clears the redo stack.
    *
    * @throws Error if the move is illegal, with a descriptive message
    * explaining why.
@@ -182,12 +183,13 @@ export class Game {
    * @example
    * ```typescript
    * const game = new Game();
-   * game.move({ from: 'e2', to: 'e4' }).move({ from: 'e7', to: 'e5' });
+   * game.move({ from: 'e2', to: 'e4' });
+   * game.move({ from: 'e7', to: 'e5' });
    * // promotion
    * game.move({ from: 'e7', to: 'e8', promotion: 'queen' });
    * ```
    */
-  move(input: Move): this {
+  move(input: Move): MoveResult {
     const legalFromSquare = this.#cachedState.moves.filter(
       (mv) => mv.from === input.from,
     );
@@ -201,12 +203,13 @@ export class Game {
 
     this.#cache = undefined;
     const previousPosition = this.#position;
-    this.#position = applyMove(this.#position, input);
-    this.#past.push({ move: input, previousPosition });
+    const { position, result } = applyMove(this.#position, input);
+    this.#position = position;
+    this.#past.push({ move: input, previousPosition, result });
     this.#future = [];
     this.#positionHistory.push(this.#position.hash);
 
-    return this;
+    return result;
   }
 
   /**
@@ -247,7 +250,8 @@ export class Game {
     }
 
     this.#cache = undefined;
-    this.#position = applyMove(entry.previousPosition, entry.move);
+    const { position } = applyMove(entry.previousPosition, entry.move);
+    this.#position = position;
     this.#past.push(entry);
     this.#positionHistory.push(this.#position.hash);
   }
