@@ -17,14 +17,14 @@ describe('regression tests (ported from chess.js)', () => {
       // so black kingside castling rights must remain intact.
       const fen = 'b3k2r/5p2/4p3/1p5p/6p1/2PR2P1/BP3qNP/6QK b k - 2 28';
       const position = fromFen(fen);
-      const next = move(position, { from: 'a8', to: 'g2' });
+      const { position: next } = move(position, { from: 'a8', to: 'g2' });
       expect(next.castlingRights.black.king).toBe(true);
     });
 
     it('FEN after bishop capture matches expected position', () => {
       const fen = 'b3k2r/5p2/4p3/1p5p/6p1/2PR2P1/BP3qNP/6QK b k - 2 28';
       const position = fromFen(fen);
-      const next = move(position, { from: 'a8', to: 'g2' });
+      const { position: next } = move(position, { from: 'a8', to: 'g2' });
       // Bishop now on g2, a8 empty, kingside castling preserved, halfmoveClock reset (capture)
       expect(next.at('g2')).toEqual({ color: 'black', type: 'bishop' });
       expect(next.at('a8')).toBeUndefined();
@@ -104,7 +104,7 @@ describe('regression tests (ported from chess.js)', () => {
       const fen =
         'rnbqkbnr/pppp1ppp/8/4pP2/8/8/PPPPP1PP/RNBQKBNR w KQkq e6 0 1';
       const position = fromFen(fen);
-      const next = move(position, { from: 'f5', to: 'e6' });
+      const { position: next } = move(position, { from: 'f5', to: 'e6' });
       // White pawn should now be on e6
       expect(next.at('e6')).toEqual({ color: 'white', type: 'pawn' });
       // Origin square vacated

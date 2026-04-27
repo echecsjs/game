@@ -120,24 +120,102 @@ describe('generateMoves — promotion', () => {
   });
 });
 
-describe('move (applyMoveToState equivalent)', () => {
-  it('moves a pawn', () => {
+describe('move()', () => {
+  it('returns position and result', () => {
     const position = fromFen(STARTING_FEN);
-    const next = move(position, { from: 'e2', to: 'e4' });
+    const { position: next, result } = move(position, { from: 'e2', to: 'e4' });
     expect(next.at('e4')).toEqual({ color: 'white', type: 'pawn' });
     expect(next.at('e2')).toBeUndefined();
+    expect(result).toEqual({
+      from: 'e2',
+      to: 'e4',
+      piece: { color: 'white', type: 'pawn' },
+    });
   });
 
   it('sets en passant square on double pawn push', () => {
     const position = fromFen(STARTING_FEN);
-    const next = move(position, { from: 'e2', to: 'e4' });
+    const { position: next } = move(position, { from: 'e2', to: 'e4' });
     expect(next.enPassantSquare).toBe('e3');
   });
 
   it('switches turn', () => {
     const position = fromFen(STARTING_FEN);
-    const next = move(position, { from: 'e2', to: 'e4' });
+    const { position: next } = move(position, { from: 'e2', to: 'e4' });
     expect(next.turn).toBe('black');
+  });
+
+  it('result includes captured piece', () => {
+    const fen =
+      'rnbqkb1r/ppp1pppp/5n2/3p4/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3';
+    const position = fromFen(fen);
+    const { result } = move(position, { from: 'e4', to: 'd5' });
+    expect(result.captured).toEqual({
+      square: 'd5',
+      piece: { color: 'black', type: 'pawn' },
+    });
+  });
+
+  it('result includes en passant capture with correct square', () => {
+    const fen = 'rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3';
+    const position = fromFen(fen);
+    const { result } = move(position, { from: 'e5', to: 'd6' });
+    expect(result.captured).toEqual({
+      square: 'd5',
+      piece: { color: 'black', type: 'pawn' },
+    });
+    expect(result.from).toBe('e5');
+    expect(result.to).toBe('d6');
+  });
+
+  it('result includes castling rook movement (kingside)', () => {
+    const fen = 'r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1';
+    const position = fromFen(fen);
+    const { result } = move(position, { from: 'e1', to: 'g1' });
+    expect(result.piece).toEqual({ color: 'white', type: 'king' });
+    expect(result.castling).toEqual({
+      from: 'h1',
+      to: 'f1',
+      piece: { color: 'white', type: 'rook' },
+    });
+  });
+
+  it('result includes castling rook movement (queenside)', () => {
+    const fen = 'r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1';
+    const position = fromFen(fen);
+    const { result } = move(position, { from: 'e1', to: 'c1' });
+    expect(result.castling).toEqual({
+      from: 'a1',
+      to: 'd1',
+      piece: { color: 'white', type: 'rook' },
+    });
+  });
+
+  it('result includes promotion piece', () => {
+    const fen = 'k7/4P3/8/8/8/8/8/K7 w - - 0 1';
+    const position = fromFen(fen);
+    const { result } = move(position, {
+      from: 'e7',
+      to: 'e8',
+      promotion: 'queen',
+    });
+    expect(result.piece).toEqual({ color: 'white', type: 'pawn' });
+    expect(result.promotion).toEqual({ color: 'white', type: 'queen' });
+  });
+
+  it('result includes both capture and promotion', () => {
+    const fen = 'k3r3/3P4/8/8/8/8/8/K7 w - - 0 1';
+    const position = fromFen(fen);
+    const { result } = move(position, {
+      from: 'd7',
+      to: 'e8',
+      promotion: 'queen',
+    });
+    expect(result.captured).toEqual({
+      square: 'e8',
+      piece: { color: 'black', type: 'rook' },
+    });
+    expect(result.promotion).toEqual({ color: 'white', type: 'queen' });
   });
 });
 
@@ -147,7 +225,7 @@ describe('move — castling rights on rook capture', () => {
     const position = fromFen(
       'r3k2r/pppppppp/8/8/8/8/1bPPPPPP/R3K2R b KQkq - 0 1',
     );
-    const next = move(position, { from: 'b2', to: 'a1' });
+    const { position: next } = move(position, { from: 'b2', to: 'a1' });
     expect(next.castlingRights.white.queen).toBe(false);
     expect(next.castlingRights.white.king).toBe(true);
   });
@@ -157,7 +235,7 @@ describe('move — castling rights on rook capture', () => {
     const position = fromFen(
       'r3k2r/pppppppp/8/8/8/7q/PPPPPP2/R3K2R b KQkq - 0 1',
     );
-    const next = move(position, { from: 'h3', to: 'h1' });
+    const { position: next } = move(position, { from: 'h3', to: 'h1' });
     expect(next.castlingRights.white.king).toBe(false);
     expect(next.castlingRights.white.queen).toBe(true);
   });
@@ -167,7 +245,7 @@ describe('move — castling rights on rook capture', () => {
     const position = fromFen(
       'r3k2r/1ppppppp/8/8/8/Q7/PPPPPPPP/R3K2R w KQkq - 0 1',
     );
-    const next = move(position, { from: 'a3', to: 'a8' });
+    const { position: next } = move(position, { from: 'a3', to: 'a8' });
     expect(next.castlingRights.black.queen).toBe(false);
     expect(next.castlingRights.black.king).toBe(true);
   });
@@ -177,7 +255,7 @@ describe('move — castling rights on rook capture', () => {
     const position = fromFen(
       'r3k2r/pppppp2/8/8/8/7Q/PPPPPPPP/R3K2R w KQkq - 0 1',
     );
-    const next = move(position, { from: 'h3', to: 'h8' });
+    const { position: next } = move(position, { from: 'h3', to: 'h8' });
     expect(next.castlingRights.black.king).toBe(false);
     expect(next.castlingRights.black.queen).toBe(true);
   });
@@ -197,7 +275,7 @@ function perft(position: Position, depth: number): number {
 
   let count = 0;
   for (const m of moves) {
-    count += perft(move(position, m), depth - 1);
+    count += perft(move(position, m).position, depth - 1);
   }
 
   return count;

@@ -1,6 +1,6 @@
 export { Game } from './game.js';
 export { STARTING_POSITION, Position } from '@echecs/position';
-export type { Move, PromotionPieceType } from './types.js';
+export type { Move, MoveResult, PromotionPieceType } from './types.js';
 export type {
   CastlingRights,
   Color,
