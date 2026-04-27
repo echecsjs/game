@@ -118,27 +118,52 @@ Where `PromotionPieceType` is `'queen' | 'rook' | 'bishop' | 'knight'`. Both
 
 #### `game.move(move)`
 
-Applies a move. Returns `this` for chaining. Throws `Error` if the move is
-illegal.
+Applies a move and returns a `MoveResult` describing what happened on the board.
+Throws `Error` if the move is illegal.
 
 ```typescript
-game.move({ from: 'e2', to: 'e4' });
-game.move({ from: 'e7', to: 'e8', promotion: 'queen' }); // promotion
+const result = game.move({ from: 'e2', to: 'e4' });
+// { from: 'e2', to: 'e4', piece: { color: 'white', type: 'pawn' } }
+
+// promotion
+const result = game.move({ from: 'e7', to: 'e8', promotion: 'queen' });
+// { from: 'e7', to: 'e8', piece: { color: 'white', type: 'pawn' },
+//   promotion: { color: 'white', type: 'queen' } }
 ```
+
+The `MoveResult` type:
+
+```typescript
+interface MoveResult {
+  from: Square;
+  to: Square;
+  piece: Piece;
+  captured?: { square: Square; piece: Piece };
+  promotion?: Piece;
+  castling?: { from: Square; to: Square; piece: Piece };
+}
+```
+
+- `captured.square` differs from `to` for en passant captures
+- `castling` gives the rook relocation (e.g.
+  `{ from: 'h1', to: 'f1', piece: { color: 'white', type: 'rook' } }`)
+- every piece is a full `Piece` with color — no deriving needed
 
 #### `game.undo()`
 
-Steps back one move. No-op at the start of the game.
+Steps back one move. Returns a reversed `MoveResult` (from/to swapped, castling
+reversed) or `undefined` at the start of the game.
 
 #### `game.redo()`
 
-Steps forward one move (after an undo). No-op at the end of history. Cleared
-whenever a new `move()` is made.
+Steps forward one move (after an undo). Returns the original forward
+`MoveResult`, or `undefined` at the end of history. Cleared whenever a new
+`move()` is made.
 
 ```typescript
 game.move({ from: 'e2', to: 'e4' });
-game.undo(); // back to start
-game.redo(); // e4 again
+const undone = game.undo(); // { from: 'e4', to: 'e2', piece: ... }
+const redone = game.redo(); // { from: 'e2', to: 'e4', piece: ... }
 ```
 
 ### History
@@ -196,6 +221,7 @@ import type {
   Color, // 'white' | 'black'
   EnPassantSquare, // typed en passant target square
   Move, // { from: Square, to: Square, promotion?: PromotionPieceType }
+  MoveResult, // { from: Square, to: Square, piece: Piece, captured?, promotion?, castling? }
   Piece, // { color: Color, type: PieceType }
   PieceType, // 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king'
   PromotionPieceType, // 'queen' | 'rook' | 'bishop' | 'knight'

@@ -8,6 +8,26 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-04-28
+
+### Changed
+
+- **BREAKING:** `game.move()` returns a `MoveResult` object instead of `this`.
+  Chaining (`game.move().move()`) no longer works — split into separate
+  statements. The result describes what happened on the board: which piece
+  moved, what was captured (with correct square for en passant), castling rook
+  relocation, and promotion.
+- **BREAKING:** `game.undo()` returns `MoveResult | undefined` instead of
+  `void`. The result is reversed (from/to swapped, castling reversed) and ready
+  for backward animation. Returns `undefined` if there is nothing to undo.
+- **BREAKING:** `game.redo()` returns `MoveResult | undefined` instead of
+  `void`. Returns the original forward `MoveResult`, or `undefined` if there is
+  nothing to redo.
+
+### Added
+
+- `MoveResult` type exported from `@echecs/game`.
+
 ## [2.0.2] - 2026-04-09
 
 ### Changed
