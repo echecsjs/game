@@ -118,52 +118,62 @@ Where `PromotionPieceType` is `'queen' | 'rook' | 'bishop' | 'knight'`. Both
 
 #### `game.move(move)`
 
-Applies a move and returns a `MoveResult` describing what happened on the board.
-Throws `Error` if the move is illegal.
+Applies a move and returns a `Movement[]` describing all board changes. Throws
+`Error` if the move is illegal.
 
 ```typescript
 const result = game.move({ from: 'e2', to: 'e4' });
-// { from: 'e2', to: 'e4', piece: { color: 'white', type: 'pawn' } }
+// [{ from: 'e2', to: 'e4', piece: { color: 'white', type: 'pawn' } }]
+
+// capture
+const result = game.move({ from: 'e4', to: 'd5' });
+// [{ from: 'e4', to: 'd5', piece: { color: 'white', type: 'pawn' } },
+//  { from: 'd5', to: undefined, piece: { color: 'black', type: 'pawn' } }]
+
+// castling
+const result = game.move({ from: 'e1', to: 'g1' });
+// [{ from: 'e1', to: 'g1', piece: { color: 'white', type: 'king' } },
+//  { from: 'h1', to: 'f1', piece: { color: 'white', type: 'rook' } }]
 
 // promotion
 const result = game.move({ from: 'e7', to: 'e8', promotion: 'queen' });
-// { from: 'e7', to: 'e8', piece: { color: 'white', type: 'pawn' },
-//   promotion: { color: 'white', type: 'queen' } }
+// [{ from: 'e7', to: undefined, piece: { color: 'white', type: 'pawn' } },
+//  { from: undefined, to: 'e8', piece: { color: 'white', type: 'queen' } }]
 ```
 
-The `MoveResult` type:
+The `Movement` type:
 
 ```typescript
-interface MoveResult {
-  from: Square;
-  to: Square;
+interface Movement {
+  from: Square | undefined;
+  to: Square | undefined;
   piece: Piece;
-  captured?: { square: Square; piece: Piece };
-  promotion?: Piece;
-  castling?: { from: Square; to: Square; piece: Piece };
 }
 ```
 
-- `captured.square` differs from `to` for en passant captures
-- `castling` gives the rook relocation (e.g.
-  `{ from: 'h1', to: 'f1', piece: { color: 'white', type: 'rook' } }`)
-- every piece is a full `Piece` with color — no deriving needed
+- `from: undefined` — piece appears on the board (promoted piece, uncaptured
+  piece on undo)
+- `to: undefined` — piece disappears from the board (captured piece, pawn on
+  promotion)
+- Ordering: active color first, then opponent color
 
 #### `game.undo()`
 
-Steps back one move. Returns a reversed `MoveResult` (from/to swapped, castling
-reversed) or `undefined` at the start of the game.
+Steps back one move. Returns a reversed `Movement[]` (from/to swapped on each
+movement) or `undefined` at the start of the game. Captures become uncaptures
+(pieces reappearing), promotions become depromotions.
 
 #### `game.redo()`
 
-Steps forward one move (after an undo). Returns the original forward
-`MoveResult`, or `undefined` at the end of history. Cleared whenever a new
-`move()` is made.
+Steps forward one move (after an undo). Returns the forward `Movement[]`, or
+`undefined` at the end of history. Cleared whenever a new `move()` is made.
 
 ```typescript
 game.move({ from: 'e2', to: 'e4' });
-const undone = game.undo(); // { from: 'e4', to: 'e2', piece: ... }
-const redone = game.redo(); // { from: 'e2', to: 'e4', piece: ... }
+const undone = game.undo();
+// [{ from: 'e4', to: 'e2', piece: { color: 'white', type: 'pawn' } }]
+const redone = game.redo();
+// [{ from: 'e2', to: 'e4', piece: { color: 'white', type: 'pawn' } }]
 ```
 
 ### History
@@ -221,7 +231,7 @@ import type {
   Color, // 'white' | 'black'
   EnPassantSquare, // typed en passant target square
   Move, // { from: Square, to: Square, promotion?: PromotionPieceType }
-  MoveResult, // { from: Square, to: Square, piece: Piece, captured?, promotion?, castling? }
+  Movement, // { from: Square | undefined, to: Square | undefined, piece: Piece }
   Piece, // { color: Color, type: PieceType }
   PieceType, // 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king'
   PromotionPieceType, // 'queen' | 'rook' | 'bishop' | 'knight'

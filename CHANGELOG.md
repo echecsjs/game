@@ -8,6 +8,30 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-04-29
+
+### Changed
+
+- **BREAKING:** `game.move()` returns `Movement[]` instead of `MoveResult`. Each
+  movement is `{ from, to, piece }` where `from` or `to` can be `undefined`
+  (piece appearing or disappearing from the board).
+- **BREAKING:** `game.undo()` returns `Movement[] | undefined` instead of
+  `MoveResult | undefined`. Movements are reversed (from/to swapped) and include
+  uncaptures (pieces reappearing) and depromotions (queen disappearing, pawn
+  reappearing).
+- **BREAKING:** `game.redo()` returns `Movement[] | undefined` instead of
+  `MoveResult | undefined`.
+- `Move` and `PromotionPieceType` types are now imported from `@echecs/position`
+  instead of defined locally.
+
+### Added
+
+- `Movement` type exported from `@echecs/game`.
+
+### Removed
+
+- **BREAKING:** `MoveResult` type removed. Use `Movement[]` instead.
+
 ## [3.0.0] - 2026-04-28
 
 ### Changed
