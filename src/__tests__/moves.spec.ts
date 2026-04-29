@@ -121,16 +121,17 @@ describe('generateMoves — promotion', () => {
 });
 
 describe('move()', () => {
-  it('returns position and result', () => {
+  it('returns position and movements', () => {
     const position = fromFen(STARTING_FEN);
-    const { position: next, result } = move(position, { from: 'e2', to: 'e4' });
-    expect(next.at('e4')).toEqual({ color: 'white', type: 'pawn' });
-    expect(next.at('e2')).toBeUndefined();
-    expect(result).toEqual({
+    const { position: next, movements } = move(position, {
       from: 'e2',
       to: 'e4',
-      piece: { color: 'white', type: 'pawn' },
     });
+    expect(next.at('e4')).toEqual({ color: 'white', type: 'pawn' });
+    expect(next.at('e2')).toBeUndefined();
+    expect(movements).toEqual([
+      { from: 'e2', to: 'e4', piece: { color: 'white', type: 'pawn' } },
+    ]);
   });
 
   it('sets en passant square on double pawn push', () => {
@@ -145,77 +146,75 @@ describe('move()', () => {
     expect(next.turn).toBe('black');
   });
 
-  it('result includes captured piece', () => {
+  it('movements includes captured piece', () => {
     const fen =
       'rnbqkb1r/ppp1pppp/5n2/3p4/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3';
     const position = fromFen(fen);
-    const { result } = move(position, { from: 'e4', to: 'd5' });
-    expect(result.captured).toEqual({
-      square: 'd5',
+    const { movements } = move(position, { from: 'e4', to: 'd5' });
+    expect(movements).toContainEqual({
+      from: 'd5',
+      to: undefined,
       piece: { color: 'black', type: 'pawn' },
     });
   });
 
-  it('result includes en passant capture with correct square', () => {
+  it('movements includes en passant capture with correct square', () => {
     const fen = 'rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3';
     const position = fromFen(fen);
-    const { result } = move(position, { from: 'e5', to: 'd6' });
-    expect(result.captured).toEqual({
-      square: 'd5',
-      piece: { color: 'black', type: 'pawn' },
-    });
-    expect(result.from).toBe('e5');
-    expect(result.to).toBe('d6');
+    const { movements } = move(position, { from: 'e5', to: 'd6' });
+    expect(movements).toEqual([
+      { from: 'e5', to: 'd6', piece: { color: 'white', type: 'pawn' } },
+      { from: 'd5', to: undefined, piece: { color: 'black', type: 'pawn' } },
+    ]);
   });
 
-  it('result includes castling rook movement (kingside)', () => {
+  it('movements includes castling rook movement (kingside)', () => {
     const fen = 'r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1';
     const position = fromFen(fen);
-    const { result } = move(position, { from: 'e1', to: 'g1' });
-    expect(result.piece).toEqual({ color: 'white', type: 'king' });
-    expect(result.castling).toEqual({
-      from: 'h1',
-      to: 'f1',
-      piece: { color: 'white', type: 'rook' },
-    });
+    const { movements } = move(position, { from: 'e1', to: 'g1' });
+    expect(movements).toEqual([
+      { from: 'e1', to: 'g1', piece: { color: 'white', type: 'king' } },
+      { from: 'h1', to: 'f1', piece: { color: 'white', type: 'rook' } },
+    ]);
   });
 
-  it('result includes castling rook movement (queenside)', () => {
+  it('movements includes castling rook movement (queenside)', () => {
     const fen = 'r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1';
     const position = fromFen(fen);
-    const { result } = move(position, { from: 'e1', to: 'c1' });
-    expect(result.castling).toEqual({
-      from: 'a1',
-      to: 'd1',
-      piece: { color: 'white', type: 'rook' },
-    });
+    const { movements } = move(position, { from: 'e1', to: 'c1' });
+    expect(movements).toEqual([
+      { from: 'e1', to: 'c1', piece: { color: 'white', type: 'king' } },
+      { from: 'a1', to: 'd1', piece: { color: 'white', type: 'rook' } },
+    ]);
   });
 
-  it('result includes promotion piece', () => {
+  it('movements includes promotion piece', () => {
     const fen = 'k7/4P3/8/8/8/8/8/K7 w - - 0 1';
     const position = fromFen(fen);
-    const { result } = move(position, {
+    const { movements } = move(position, {
       from: 'e7',
       to: 'e8',
       promotion: 'queen',
     });
-    expect(result.piece).toEqual({ color: 'white', type: 'pawn' });
-    expect(result.promotion).toEqual({ color: 'white', type: 'queen' });
+    expect(movements).toEqual([
+      { from: 'e7', to: undefined, piece: { color: 'white', type: 'pawn' } },
+      { from: undefined, to: 'e8', piece: { color: 'white', type: 'queen' } },
+    ]);
   });
 
-  it('result includes both capture and promotion', () => {
+  it('movements includes both capture and promotion', () => {
     const fen = 'k3r3/3P4/8/8/8/8/8/K7 w - - 0 1';
     const position = fromFen(fen);
-    const { result } = move(position, {
+    const { movements } = move(position, {
       from: 'd7',
       to: 'e8',
       promotion: 'queen',
     });
-    expect(result.captured).toEqual({
-      square: 'e8',
-      piece: { color: 'black', type: 'rook' },
-    });
-    expect(result.promotion).toEqual({ color: 'white', type: 'queen' });
+    expect(movements).toEqual([
+      { from: 'd7', to: undefined, piece: { color: 'white', type: 'pawn' } },
+      { from: undefined, to: 'e8', piece: { color: 'white', type: 'queen' } },
+      { from: 'e8', to: undefined, piece: { color: 'black', type: 'rook' } },
+    ]);
   });
 });
 
