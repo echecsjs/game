@@ -1,4 +1,4 @@
-import type { MoveResult } from './types.js';
+import type { Movement } from './types.js';
 import type {
   CastlingRights,
   Color,
@@ -201,23 +201,16 @@ function boardChanges(
 }
 
 /**
- * Apply a move to a Position, returning the new Position and a MoveResult.
+ * Apply a move to a Position, returning the new Position and a Movement[].
  * Does not validate legality — assumes the move is valid.
  */
 function move(
   position: Position,
   m: Move,
-): { position: Position; result: MoveResult } {
+): { movements: Movement[]; position: Position } {
   const piece = position.at(m.from);
   if (piece === undefined) {
-    return {
-      position,
-      result: {
-        from: m.from,
-        piece: { color: 'white', type: 'pawn' },
-        to: m.to,
-      },
-    };
+    return { movements: [], position };
   }
 
   const changes = boardChanges(position, m);
@@ -336,45 +329,56 @@ function move(
     turn,
   });
 
-  // Build MoveResult
-  const result: MoveResult = { from: m.from, piece, to: m.to };
+  // Build Movement[]
+  const movements: Movement[] = [];
 
+  if (piece.type === 'pawn' && m.promotion !== undefined) {
+    // Promotion: pawn disappears, promoted piece appears
+    movements.push(
+      { from: m.from, piece, to: undefined },
+      {
+        from: undefined,
+        piece: { color: piece.color, type: m.promotion },
+        to: m.to,
+      },
+    );
+  } else {
+    // Primary movement
+    movements.push({ from: m.from, piece, to: m.to });
+  }
+
+  // Castling: rook relocation
+  if (isCastling) {
+    const rank = m.from[1] as string;
+    const rook: Piece = { color: piece.color, type: 'rook' };
+    movements.push(
+      toFile === 'g'
+        ? { from: `h${rank}` as Square, piece: rook, to: `f${rank}` as Square }
+        : { from: `a${rank}` as Square, piece: rook, to: `d${rank}` as Square },
+    );
+  }
+
+  // Captures
   if (isEnPassant) {
     const capturedFile = m.to[0] as string;
     const capturedRank = m.from[1] as string;
     const capturedSquare = `${capturedFile}${capturedRank}` as Square;
     const capturedPiece = position.at(capturedSquare);
     if (capturedPiece !== undefined) {
-      result.captured = { piece: capturedPiece, square: capturedSquare };
+      movements.push({
+        from: capturedSquare,
+        piece: capturedPiece,
+        to: undefined,
+      });
     }
   } else if (isCapture) {
     const capturedPiece = position.at(m.to);
     if (capturedPiece !== undefined) {
-      result.captured = { piece: capturedPiece, square: m.to };
+      movements.push({ from: m.to, piece: capturedPiece, to: undefined });
     }
   }
 
-  if (piece.type === 'pawn' && m.promotion !== undefined) {
-    result.promotion = { color: piece.color, type: m.promotion };
-  }
-
-  if (isCastling) {
-    const rank = m.from[1] as string;
-    result.castling =
-      toFile === 'g'
-        ? {
-            from: `h${rank}` as Square,
-            piece: { color: piece.color, type: 'rook' },
-            to: `f${rank}` as Square,
-          }
-        : {
-            from: `a${rank}` as Square,
-            piece: { color: piece.color, type: 'rook' },
-            to: `d${rank}` as Square,
-          };
-  }
-
-  return { position: newPosition, result };
+  return { movements, position: newPosition };
 }
 
 /**

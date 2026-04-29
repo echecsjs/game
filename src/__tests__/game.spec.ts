@@ -23,16 +23,14 @@ describe('new Game()', () => {
 });
 
 describe('move()', () => {
-  it('applies a legal move and returns MoveResult', () => {
+  it('applies a legal move and returns Movement[]', () => {
     const game = new Game();
     const result = game.move({ from: 'e2', to: 'e4' });
     expect(game.get('e4')).toEqual({ color: 'white', type: 'pawn' });
     expect(game.get('e2')).toBeUndefined();
-    expect(result).toEqual({
-      from: 'e2',
-      to: 'e4',
-      piece: { color: 'white', type: 'pawn' },
-    });
+    expect(result).toEqual([
+      { from: 'e2', to: 'e4', piece: { color: 'white', type: 'pawn' } },
+    ]);
   });
 
   it('switches turn after move', () => {
@@ -47,45 +45,56 @@ describe('move()', () => {
     );
   });
 
-  it('returns MoveResult with capture info', () => {
+  it('returns Movement[] with capture', () => {
     const game = new Game();
     game.move({ from: 'e2', to: 'e4' });
     game.move({ from: 'd7', to: 'd5' });
     const result = game.move({ from: 'e4', to: 'd5' });
-    expect(result.captured).toEqual({
-      square: 'd5',
-      piece: { color: 'black', type: 'pawn' },
-    });
+    expect(result).toEqual([
+      { from: 'e4', to: 'd5', piece: { color: 'white', type: 'pawn' } },
+      { from: 'd5', to: undefined, piece: { color: 'black', type: 'pawn' } },
+    ]);
   });
 
-  it('returns MoveResult with castling info', () => {
+  it('returns Movement[] with castling', () => {
     const game = new Game(
       fromFen('r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1'),
     );
     const result = game.move({ from: 'e1', to: 'g1' });
-    expect(result.castling).toEqual({
-      from: 'h1',
-      to: 'f1',
-      piece: { color: 'white', type: 'rook' },
-    });
+    expect(result).toEqual([
+      { from: 'e1', to: 'g1', piece: { color: 'white', type: 'king' } },
+      { from: 'h1', to: 'f1', piece: { color: 'white', type: 'rook' } },
+    ]);
   });
 
-  it('returns MoveResult with promotion info', () => {
+  it('returns Movement[] with promotion', () => {
     const game = new Game(fromFen('k7/4P3/8/8/8/8/8/K7 w - - 0 1'));
     const result = game.move({ from: 'e7', to: 'e8', promotion: 'queen' });
-    expect(result.promotion).toEqual({ color: 'white', type: 'queen' });
-    expect(result.piece).toEqual({ color: 'white', type: 'pawn' });
+    expect(result).toEqual([
+      { from: 'e7', to: undefined, piece: { color: 'white', type: 'pawn' } },
+      { from: undefined, to: 'e8', piece: { color: 'white', type: 'queen' } },
+    ]);
   });
 
-  it('returns MoveResult with en passant capture', () => {
+  it('returns Movement[] with promotion and capture', () => {
+    const game = new Game(fromFen('k2r4/4P3/8/8/8/8/8/K7 w - - 0 1'));
+    const result = game.move({ from: 'e7', to: 'd8', promotion: 'queen' });
+    expect(result).toEqual([
+      { from: 'e7', to: undefined, piece: { color: 'white', type: 'pawn' } },
+      { from: undefined, to: 'd8', piece: { color: 'white', type: 'queen' } },
+      { from: 'd8', to: undefined, piece: { color: 'black', type: 'rook' } },
+    ]);
+  });
+
+  it('returns Movement[] with en passant', () => {
     const game = new Game(
       fromFen('rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3'),
     );
     const result = game.move({ from: 'e5', to: 'd6' });
-    expect(result.captured).toEqual({
-      square: 'd5',
-      piece: { color: 'black', type: 'pawn' },
-    });
+    expect(result).toEqual([
+      { from: 'e5', to: 'd6', piece: { color: 'white', type: 'pawn' } },
+      { from: 'd5', to: undefined, piece: { color: 'black', type: 'pawn' } },
+    ]);
   });
 });
 
@@ -269,53 +278,70 @@ describe('undo() return value', () => {
     expect(game.undo()).toBeUndefined();
   });
 
-  it('returns reversed MoveResult for a normal move', () => {
+  it('returns reversed Movement[] for a normal move', () => {
     const game = new Game();
     game.move({ from: 'e2', to: 'e4' });
     const result = game.undo();
-    expect(result).toEqual({
-      from: 'e4',
-      to: 'e2',
-      piece: { color: 'white', type: 'pawn' },
-    });
+    expect(result).toEqual([
+      { from: 'e4', to: 'e2', piece: { color: 'white', type: 'pawn' } },
+    ]);
   });
 
-  it('returns reversed MoveResult for castling', () => {
-    const game = new Game(
-      fromFen('r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1'),
-    );
-    game.move({ from: 'e1', to: 'g1' });
-    const result = game.undo();
-    expect(result).toEqual({
-      from: 'g1',
-      to: 'e1',
-      piece: { color: 'white', type: 'king' },
-      castling: {
-        from: 'f1',
-        to: 'h1',
-        piece: { color: 'white', type: 'rook' },
-      },
-    });
-  });
-
-  it('returns reversed MoveResult for promotion (piece is the promoted piece)', () => {
-    const game = new Game(fromFen('k7/4P3/8/8/8/8/8/K7 w - - 0 1'));
-    game.move({ from: 'e7', to: 'e8', promotion: 'queen' });
-    const result = game.undo();
-    expect(result).toEqual({
-      from: 'e8',
-      to: 'e7',
-      piece: { color: 'white', type: 'queen' },
-    });
-  });
-
-  it('omits captured on undo', () => {
+  it('returns reversed Movement[] with capture (uncapture)', () => {
     const game = new Game();
     game.move({ from: 'e2', to: 'e4' });
     game.move({ from: 'd7', to: 'd5' });
     game.move({ from: 'e4', to: 'd5' });
     const result = game.undo();
-    expect(result?.captured).toBeUndefined();
+    expect(result).toEqual([
+      { from: 'd5', to: 'e4', piece: { color: 'white', type: 'pawn' } },
+      { from: undefined, to: 'd5', piece: { color: 'black', type: 'pawn' } },
+    ]);
+  });
+
+  it('returns reversed Movement[] with en passant (uncapture)', () => {
+    const game = new Game(
+      fromFen('rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3'),
+    );
+    game.move({ from: 'e5', to: 'd6' });
+    const result = game.undo();
+    expect(result).toEqual([
+      { from: 'd6', to: 'e5', piece: { color: 'white', type: 'pawn' } },
+      { from: undefined, to: 'd5', piece: { color: 'black', type: 'pawn' } },
+    ]);
+  });
+
+  it('returns reversed Movement[] with castling', () => {
+    const game = new Game(
+      fromFen('r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1'),
+    );
+    game.move({ from: 'e1', to: 'g1' });
+    const result = game.undo();
+    expect(result).toEqual([
+      { from: 'f1', to: 'h1', piece: { color: 'white', type: 'rook' } },
+      { from: 'g1', to: 'e1', piece: { color: 'white', type: 'king' } },
+    ]);
+  });
+
+  it('returns reversed Movement[] with promotion (depromotion)', () => {
+    const game = new Game(fromFen('k7/4P3/8/8/8/8/8/K7 w - - 0 1'));
+    game.move({ from: 'e7', to: 'e8', promotion: 'queen' });
+    const result = game.undo();
+    expect(result).toEqual([
+      { from: 'e8', to: undefined, piece: { color: 'white', type: 'queen' } },
+      { from: undefined, to: 'e7', piece: { color: 'white', type: 'pawn' } },
+    ]);
+  });
+
+  it('returns reversed Movement[] with promotion and capture', () => {
+    const game = new Game(fromFen('k2r4/4P3/8/8/8/8/8/K7 w - - 0 1'));
+    game.move({ from: 'e7', to: 'd8', promotion: 'queen' });
+    const result = game.undo();
+    expect(result).toEqual([
+      { from: 'd8', to: undefined, piece: { color: 'white', type: 'queen' } },
+      { from: undefined, to: 'e7', piece: { color: 'white', type: 'pawn' } },
+      { from: undefined, to: 'd8', piece: { color: 'black', type: 'rook' } },
+    ]);
   });
 });
 
@@ -325,29 +351,27 @@ describe('redo() return value', () => {
     expect(game.redo()).toBeUndefined();
   });
 
-  it('returns the forward MoveResult', () => {
+  it('returns forward Movement[]', () => {
     const game = new Game();
     game.move({ from: 'e2', to: 'e4' });
     game.undo();
     const result = game.redo();
-    expect(result).toEqual({
-      from: 'e2',
-      to: 'e4',
-      piece: { color: 'white', type: 'pawn' },
-    });
+    expect(result).toEqual([
+      { from: 'e2', to: 'e4', piece: { color: 'white', type: 'pawn' } },
+    ]);
   });
 
-  it('returns forward MoveResult with capture info', () => {
+  it('returns forward Movement[] with capture', () => {
     const game = new Game();
     game.move({ from: 'e2', to: 'e4' });
     game.move({ from: 'd7', to: 'd5' });
     game.move({ from: 'e4', to: 'd5' });
     game.undo();
     const result = game.redo();
-    expect(result?.captured).toEqual({
-      square: 'd5',
-      piece: { color: 'black', type: 'pawn' },
-    });
+    expect(result).toEqual([
+      { from: 'e4', to: 'd5', piece: { color: 'white', type: 'pawn' } },
+      { from: 'd5', to: undefined, piece: { color: 'black', type: 'pawn' } },
+    ]);
   });
 });
 

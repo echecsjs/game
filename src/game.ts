@@ -3,31 +3,12 @@ import { Position, STARTING_POSITION } from '@echecs/position';
 import { isCheckmate, isDraw, isStalemate } from './detection.js';
 import { move as applyMove, generateMoves } from './moves.js';
 
-import type { MoveResult } from './types.js';
+import type { Movement } from './types.js';
 import type { Color, Move, Piece, Square } from '@echecs/position';
-
-function reverseMoveResult(result: MoveResult): MoveResult {
-  const reversed: MoveResult = {
-    from: result.to,
-    piece: result.promotion ?? result.piece,
-    to: result.from,
-  };
-
-  if (result.castling) {
-    reversed.castling = {
-      from: result.castling.to,
-      piece: result.castling.piece,
-      to: result.castling.from,
-    };
-  }
-
-  return reversed;
-}
 
 interface HistoryEntry {
   move: Move;
-  previousPosition: Position;
-  result: MoveResult;
+  position: Position;
 }
 
 /**
@@ -192,7 +173,7 @@ export class Game {
   }
 
   /**
-   * Applies a move and returns a {@link MoveResult} describing what happened.
+   * Applies a move and returns a {@link Movement} array describing all board changes.
    * Clears the redo stack.
    *
    * @throws Error if the move is illegal, with a descriptive message
@@ -207,7 +188,7 @@ export class Game {
    * game.move({ from: 'e7', to: 'e8', promotion: 'queen' });
    * ```
    */
-  move(input: Move): MoveResult {
+  move(input: Move): Movement[] {
     const legalFromSquare = this.#cachedState.moves.filter(
       (mv) => mv.from === input.from,
     );
@@ -220,14 +201,17 @@ export class Game {
     }
 
     this.#cache = undefined;
-    const previousPosition = this.#position;
-    const { position, result } = applyMove(this.#position, input);
-    this.#position = position;
-    this.#past.push({ move: input, previousPosition, result });
+    const position = this.#position;
+    const { movements, position: newPosition } = applyMove(
+      this.#position,
+      input,
+    );
+    this.#position = newPosition;
+    this.#past.push({ move: input, position });
     this.#future = [];
     this.#positionHistory.push(this.#position.hash);
 
-    return result;
+    return movements;
   }
 
   /**
@@ -261,19 +245,19 @@ export class Game {
    * @remarks The redo stack is cleared whenever a new {@link move} is
    * made.
    */
-  redo(): MoveResult | undefined {
+  redo(): Movement[] | undefined {
     const entry = this.#future.pop();
     if (entry === undefined) {
       return undefined;
     }
 
     this.#cache = undefined;
-    const { position } = applyMove(entry.previousPosition, entry.move);
+    const { movements, position } = applyMove(entry.position, entry.move);
     this.#position = position;
     this.#past.push(entry);
     this.#positionHistory.push(this.#position.hash);
 
-    return entry.result;
+    return movements;
   }
 
   /** Returns the color whose turn it is to move: `'white'` or `'black'`. */
@@ -282,17 +266,28 @@ export class Game {
   }
 
   /** Steps back one move. No-op at the start of the game. */
-  undo(): MoveResult | undefined {
+  undo(): Movement[] | undefined {
     const entry = this.#past.pop();
     if (entry === undefined) {
       return undefined;
     }
 
     this.#cache = undefined;
-    this.#position = entry.previousPosition;
+    this.#position = entry.position;
     this.#future.push(entry);
     this.#positionHistory.pop();
 
-    return reverseMoveResult(entry.result);
+    const { movements } = applyMove(entry.position, entry.move);
+    const activeColor = entry.position.turn;
+    const active = movements
+      .filter((m) => m.piece.color === activeColor)
+      .toReversed()
+      .map((m) => ({ from: m.to, piece: m.piece, to: m.from }));
+    const opponent = movements
+      .filter((m) => m.piece.color !== activeColor)
+      .toReversed()
+      .map((m) => ({ from: m.to, piece: m.piece, to: m.from }));
+
+    return [...active, ...opponent];
   }
 }
