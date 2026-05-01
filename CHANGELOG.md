@@ -8,6 +8,14 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [4.0.1] - 2026-05-01
+
+### Changed
+
+- Updated `@echecs/position` from `^3.1.0` to `^4.0.0`.
+- Updated `@echecs/fen` from `^2.0.0` to `^3.0.0` (dev dependency).
+- Updated `@echecs/san` from `^3.0.0` to `3.1.3` (dev dependency).
+
 ## [4.0.0] - 2026-04-29
 
 ### Changed
