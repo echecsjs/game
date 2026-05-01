@@ -7,13 +7,7 @@ function fromFen(fen: string): Position {
     throw new Error(`Invalid FEN in test: ${fen}`);
   }
 
-  return new Position(parsed.board, {
-    castlingRights: parsed.castlingRights,
-    enPassantSquare: parsed.enPassantSquare,
-    fullmoveNumber: parsed.fullmoveNumber,
-    halfmoveClock: parsed.halfmoveClock,
-    turn: parsed.turn,
-  });
+  return new Position(parsed);
 }
 
 export { fromFen };

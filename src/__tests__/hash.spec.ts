@@ -6,8 +6,8 @@ import { fromFen } from './helpers.js';
 
 describe('zobrist hash consistency', () => {
   it('starting position has a consistent hash', () => {
-    const pos1 = new Position(STARTING_POSITION);
-    const pos2 = new Position(STARTING_POSITION);
+    const pos1 = new Position({ board: STARTING_POSITION });
+    const pos2 = new Position({ board: STARTING_POSITION });
     expect(pos1.hash).toBe(pos2.hash);
     expect(pos1.hash).toMatch(/^[\da-f]{16}$/);
   });

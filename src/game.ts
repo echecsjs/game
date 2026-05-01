@@ -40,7 +40,7 @@ export class Game {
    * ```
    */
   constructor(position?: Position) {
-    this.#position = position ?? new Position(STARTING_POSITION);
+    this.#position = position ?? new Position({ board: STARTING_POSITION });
     this.#positionHistory = [this.#position.hash];
   }
 
