@@ -12,3 +12,7 @@ docs/api/*
 !docs/api/.gitkeep
 .playwright-mcp/
 release.yml
+
+# Agent planning artifacts
+.superpowers/
+docs/superpowers/
