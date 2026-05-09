@@ -3,6 +3,7 @@
 [![npm](https://img.shields.io/npm/v/@echecs/game)](https://www.npmjs.com/package/@echecs/game)
 [![Coverage](https://codecov.io/gh/echecsjs/game/branch/main/graph/badge.svg)](https://codecov.io/gh/echecsjs/game)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Spec](https://img.shields.io/badge/Spec-FIDE-green.svg)](SPEC.md)
 
 **GAME** is a TypeScript chess game engine — part of the
 [ECHECS](https://github.com/echecsjs) project.
