@@ -41,7 +41,7 @@
     "README.md",
     "CHANGELOG.md"
   ],
-  "homepage": "https://github.com/echecsjs/game#readme",
+  "homepage": "https://game.echecs.dev",
   "keywords": [
     "board",
     "checkmate",
