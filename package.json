@@ -60,6 +60,9 @@
   ],
   "license": "MIT",
   "name": "@echecs/game",
+  "publishConfig": {
+    "access": "public"
+  },
   "packageManager": "pnpm@10.33.0",
   "repository": {
     "type": "git",
