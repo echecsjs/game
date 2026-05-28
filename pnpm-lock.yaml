@@ -16,8 +16,8 @@ importers:
         specifier: ^3.0.0
         version: 3.0.0(@echecs/position@4.0.0)
       '@echecs/san':
-        specifier: ^3.1.3
-        version: 3.1.3(@echecs/position@4.0.0)
+        specifier: ^4.0.0
+        version: 4.0.0(@echecs/position@4.0.0)
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.4.0)
@@ -127,9 +127,9 @@ packages:
     resolution: {integrity: sha512-D9z+d13owPg/EEyEp2nfqhE8gbDCdWvsoULstW4bRrums0J/i3Nxc9yz7XADe8dFhV4nqAYCanrZBk9Sr6aIIw==}
     engines: {node: '>=20'}
 
-  '@echecs/san@3.1.3':
-    resolution: {integrity: sha512-Cjcpt5dEksG5p/tIiPfAxnU1MhmD2Kl3ADOQasH0P0FHgUArn5amkd5MeHTnjDyltqOhjNa1BsGZcS4MVNvBCA==}
-    engines: {node: '>=20'}
+  '@echecs/san@4.0.0':
+    resolution: {integrity: sha512-AheIjyG7Xb7YJmb8TCR9RpG5VXpdcpMcsRLzUGfoYiDI/K+raOptvP0QNy0krMAAM8iJy2dac/oFCnDDTsjzkw==}
+    engines: {node: '>=22'}
     peerDependencies:
       '@echecs/position': ^4.0.0
 
@@ -1856,7 +1856,7 @@ snapshots:
     dependencies:
       '@echecs/zobrist': 1.0.2
 
-  '@echecs/san@3.1.3(@echecs/position@4.0.0)':
+  '@echecs/san@4.0.0(@echecs/position@4.0.0)':
     dependencies:
       '@echecs/position': 4.0.0
 
