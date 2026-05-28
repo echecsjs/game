@@ -92,7 +92,13 @@ describe('full game playthrough (Fischer-Spassky 1972 Game 6)', () => {
     const game = new Game();
 
     for (const san of MOVES) {
-      game.move(parse(san, game.position()));
+      const move = parse(san, game.position());
+
+      if (!move) {
+        throw new Error(`parse("${san}") returned null`);
+      }
+
+      game.move(move);
     }
 
     expect(game.history()).toHaveLength(81);
@@ -102,7 +108,13 @@ describe('full game playthrough (Fischer-Spassky 1972 Game 6)', () => {
     const game = new Game();
 
     for (const san of MOVES) {
-      game.move(parse(san, game.position()));
+      const move = parse(san, game.position());
+
+      if (!move) {
+        throw new Error(`parse("${san}") returned null`);
+      }
+
+      game.move(move);
     }
 
     expect(game.turn()).toBe('black');
@@ -115,7 +127,13 @@ describe('full game playthrough (Fischer-Spassky 1972 Game 6)', () => {
     const startingHash = game.position().hash;
 
     for (const san of MOVES) {
-      game.move(parse(san, game.position()));
+      const move = parse(san, game.position());
+
+      if (!move) {
+        throw new Error(`parse("${san}") returned null`);
+      }
+
+      game.move(move);
     }
 
     let undoCount = MOVES.length;
