@@ -5,7 +5,7 @@
   },
   "description": "Chess game engine with legal move generation, check/checkmate/stalemate detection, and undo/redo. Strict TypeScript.",
   "devDependencies": {
-    "@echecs/fen": "^3.0.0",
+    "@echecs/fen": "^4.0.0",
     "@echecs/san": "^4.0.0",
     "@eslint/js": "^10.0.1",
     "@typescript-eslint/parser": "^8.60.0",

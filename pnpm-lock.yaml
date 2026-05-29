@@ -13,8 +13,8 @@ importers:
         version: 4.0.0
     devDependencies:
       '@echecs/fen':
-        specifier: ^3.0.0
-        version: 3.0.0(@echecs/position@4.0.0)
+        specifier: ^4.0.0
+        version: 4.0.0(@echecs/position@4.0.0)
       '@echecs/san':
         specifier: ^4.0.0
         version: 4.0.0(@echecs/position@4.0.0)
@@ -130,9 +130,9 @@ packages:
     resolution: {integrity: sha512-6zABk/ECA/QYSCQ1NGiVwwbQerUCZ+TQbp64Q3AgmfNvurHH0j8TtXa1qbShXA6qqkpAj4V5W8pP6mLe1mcMqA==}
     engines: {node: '>=18'}
 
-  '@echecs/fen@3.0.0':
-    resolution: {integrity: sha512-cJ423Pa7Mtb8Va83AQv5fRA/34p4zy+NydyK1CGHXxRyTOCprJe0CGmRyL4zbFE25ezjpsXn7Uw81HdfSC4+Kg==}
-    engines: {node: '>=20'}
+  '@echecs/fen@4.0.0':
+    resolution: {integrity: sha512-4vHXbgDACksYvF1xyjuloHAcdIc+dlq8BgcwNVayAUHm/AUTUtt8Lg+GO+WV/BlhyqEZytqazFSimpBLIJoQ1g==}
+    engines: {node: '>=22'}
     peerDependencies:
       '@echecs/position': ^4.0.0
 
@@ -1873,7 +1873,7 @@ snapshots:
 
   '@bcoe/v8-coverage@1.0.2': {}
 
-  '@echecs/fen@3.0.0(@echecs/position@4.0.0)':
+  '@echecs/fen@4.0.0(@echecs/position@4.0.0)':
     dependencies:
       '@echecs/position': 4.0.0
 
