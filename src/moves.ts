@@ -60,7 +60,7 @@ function generatePseudoLegalMoves(position: Position, square: Square): Move[] {
 
   for (const target of targets) {
     if (piece.type === 'pawn') {
-      const rank = target[1];
+      const rank = target.at(1);
       const isPromotion = rank === '8' || rank === '1';
       if (isPromotion) {
         for (const promo of PROMOTION_PIECES) {
@@ -166,22 +166,22 @@ function boardChanges(
     piece.type === 'pawn' && m.to === position.enPassantSquare && !isCapture;
 
   if (isEnPassant) {
-    const capturedFile = m.to[0] as string;
-    const capturedRank = m.from[1] as string;
+    const capturedFile = m.to.at(0) as string;
+    const capturedRank = m.from.at(1) as string;
     const capturedSquare = `${capturedFile}${capturedRank}` as Square;
     changes.push([capturedSquare, undefined]);
   }
 
   // Castling: move the rook
-  const fromFile = m.from[0];
-  const toFile = m.to[0];
+  const fromFile = m.from.at(0);
+  const toFile = m.to.at(0);
   const isCastling =
     piece.type === 'king' &&
     fromFile === 'e' &&
     (toFile === 'g' || toFile === 'c');
 
   if (isCastling) {
-    const rank = m.from[1] as string;
+    const rank = m.from.at(1) as string;
     if (toFile === 'g') {
       // Kingside
       changes.push(
@@ -220,47 +220,47 @@ function move(
     piece.type === 'pawn' && m.to === position.enPassantSquare && !isCapture;
 
   // Castling detection
-  const fromFile = m.from[0];
-  const toFile = m.to[0];
+  const fromFile = m.from.at(0);
+  const toFile = m.to.at(0);
   const isCastling =
     piece.type === 'king' &&
     fromFile === 'e' &&
     (toFile === 'g' || toFile === 'c');
 
   // Castling rights
-  let wK = position.castlingRights.white.king;
-  let wQ = position.castlingRights.white.queen;
-  let bK = position.castlingRights.black.king;
-  let bQ = position.castlingRights.black.queen;
+  let isWK = position.castlingRights.white.king;
+  let isWQ = position.castlingRights.white.queen;
+  let isBK = position.castlingRights.black.king;
+  let isBQ = position.castlingRights.black.queen;
 
   // King moves: revoke all castling for that side
   if (piece.type === 'king') {
     if (piece.color === 'white') {
-      wK = false;
-      wQ = false;
+      isWK = false;
+      isWQ = false;
     } else {
-      bK = false;
-      bQ = false;
+      isBK = false;
+      isBQ = false;
     }
   }
 
   // Rook moves: revoke own castling
-  if (piece.type === 'rook') {
+  else if (piece.type === 'rook') {
     switch (m.from) {
       case 'a1': {
-        wQ = false;
+        isWQ = false;
         break;
       }
       case 'h1': {
-        wK = false;
+        isWK = false;
         break;
       }
       case 'a8': {
-        bQ = false;
+        isBQ = false;
         break;
       }
       case 'h8': {
-        bK = false;
+        isBK = false;
         break;
       }
       // No default
@@ -271,19 +271,19 @@ function move(
   if (isCapture) {
     switch (m.to) {
       case 'a1': {
-        wQ = false;
+        isWQ = false;
         break;
       }
       case 'h1': {
-        wK = false;
+        isWK = false;
         break;
       }
       case 'a8': {
-        bQ = false;
+        isBQ = false;
         break;
       }
       case 'h8': {
-        bK = false;
+        isBK = false;
         break;
       }
       // No default
@@ -291,19 +291,19 @@ function move(
   }
 
   const castlingRights: CastlingRights = {
-    black: { king: bK, queen: bQ },
-    white: { king: wK, queen: wQ },
+    black: { king: isBK, queen: isBQ },
+    white: { king: isWK, queen: isWQ },
   };
 
   // En passant square
   let enPassantSquare: EnPassantSquare | undefined;
   if (piece.type === 'pawn') {
-    const fromRank = m.from[1];
-    const toRank = m.to[1];
+    const fromRank = m.from.at(1);
+    const toRank = m.to.at(1);
     const rankDiff = Math.abs(Number(toRank) - Number(fromRank));
     if (rankDiff === 2) {
       const epRank = piece.color === 'white' ? '3' : '6';
-      enPassantSquare = `${m.from[0]}${epRank}` as EnPassantSquare;
+      enPassantSquare = `${m.from.at(0)}${epRank}` as EnPassantSquare;
     }
   }
 
@@ -349,7 +349,7 @@ function move(
 
   // Castling: rook relocation
   if (isCastling) {
-    const rank = m.from[1] as string;
+    const rank = m.from.at(1) as string;
     const rook: Piece = { color: piece.color, type: 'rook' };
     movements.push(
       toFile === 'g'
@@ -360,8 +360,8 @@ function move(
 
   // Captures
   if (isEnPassant) {
-    const capturedFile = m.to[0] as string;
-    const capturedRank = m.from[1] as string;
+    const capturedFile = m.to.at(0) as string;
+    const capturedRank = m.from.at(1) as string;
     const capturedSquare = `${capturedFile}${capturedRank}` as Square;
     const capturedPiece = position.at(capturedSquare);
     if (capturedPiece !== undefined) {
