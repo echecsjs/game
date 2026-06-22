@@ -213,7 +213,8 @@ describe('board()', () => {
   });
 
   it('each rank has 8 files', () => {
-    for (const rank of new Game().board()) {
+    const board = new Game().board();
+    for (const rank of board) {
       expect(rank).toHaveLength(8);
     }
   });
