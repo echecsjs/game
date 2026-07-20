@@ -309,7 +309,7 @@ function move(
 
   // Clocks
   const halfmoveClock =
-    piece.type === 'pawn' || isCapture || isEnPassant
+    isCapture || isEnPassant || piece.type === 'pawn'
       ? 0
       : position.halfmoveClock + 1;
 
