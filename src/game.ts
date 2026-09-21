@@ -79,11 +79,11 @@ export class Game {
       return `Illegal move: ${m.from} ${piece.type} cannot move to ${m.to}`;
     }
 
-    const promotionRequired = toMatches.some(
+    const isPromotionRequired = toMatches.some(
       (mv) => mv.promotion !== undefined,
     );
 
-    return promotionRequired
+    return isPromotionRequired
       ? `Illegal move: pawn must promote on ${m.to}`
       : `Illegal move: promotion not allowed on ${m.to}`;
   }
@@ -137,12 +137,16 @@ export class Game {
     return this.#past.map((entry) => entry.move);
   }
 
-  /** Returns `true` if the active color's king is in check. */
+  /**
+  Returns `true` if the active color's king is in check.
+  */
   isCheck(): boolean {
     return this.#cachedState.inCheck;
   }
 
-  /** Returns `true` if the active color is in checkmate. */
+  /**
+  Returns `true` if the active color is in checkmate.
+  */
   isCheckmate(): boolean {
     return isCheckmate(this.#position, this.#cachedState.moves);
   }
@@ -159,7 +163,9 @@ export class Game {
     );
   }
 
-  /** Returns `true` if the game is over by checkmate or draw. */
+  /**
+  Returns `true` if the game is over by checkmate or draw.
+  */
   isGameOver(): boolean {
     return this.isCheckmate() || this.isDraw();
   }
@@ -226,14 +232,14 @@ export class Game {
    * ```
    */
   moves(square?: Square): Move[] {
-    if (square === undefined) {
-      return this.#cachedState.moves;
-    }
-
-    return this.#cachedState.moves.filter((m) => m.from === square);
+    return square === undefined
+      ? this.#cachedState.moves
+      : this.#cachedState.moves.filter((m) => m.from === square);
   }
 
-  /** Returns the underlying {@link Position} object. */
+  /**
+  Returns the underlying {@link Position} object.
+  */
   position(): Position {
     return this.#position;
   }
@@ -260,12 +266,16 @@ export class Game {
     return movements;
   }
 
-  /** Returns the color whose turn it is to move: `'white'` or `'black'`. */
+  /**
+  Returns the color whose turn it is to move: `'white'` or `'black'`.
+  */
   turn(): Color {
     return this.#position.turn;
   }
 
-  /** Steps back one move. No-op at the start of the game. */
+  /**
+  Steps back one move. No-op at the start of the game.
+  */
   undo(): Movement[] | undefined {
     const entry = this.#past.pop();
     if (entry === undefined) {
