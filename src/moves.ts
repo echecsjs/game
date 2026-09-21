@@ -330,22 +330,17 @@ function move(
   });
 
   // Build Movement[]
-  const movements: Movement[] = [];
-
-  if (piece.type === 'pawn' && m.promotion !== undefined) {
-    // Promotion: pawn disappears, promoted piece appears
-    movements.push(
-      { from: m.from, piece, to: undefined },
-      {
-        from: undefined,
-        piece: { color: piece.color, type: m.promotion },
-        to: m.to,
-      },
-    );
-  } else {
-    // Primary movement
-    movements.push({ from: m.from, piece, to: m.to });
-  }
+  const movements: Movement[] =
+    piece.type === 'pawn' && m.promotion !== undefined
+      ? [
+          { from: m.from, piece, to: undefined },
+          {
+            from: undefined,
+            piece: { color: piece.color, type: m.promotion },
+            to: m.to,
+          },
+        ]
+      : [{ from: m.from, piece, to: m.to }];
 
   // Castling: rook relocation
   if (isCastling) {
