@@ -1,6 +1,8 @@
+/* eslint-disable vitest/expect-expect -- benchmarks measure via the bench fixture, not assertions */
+
 import { STARTING_FEN as FEN } from '@echecs/fen';
 import { Chess } from 'chess.js';
-import { bench, describe } from 'vitest';
+import { describe, test } from 'vitest';
 
 import { Game } from '../game.js';
 import { fromFen } from './helpers.js';
@@ -21,58 +23,82 @@ const STALEMATE_FEN = 'k7/8/1QK5/8/8/8/8/8 b - - 0 1';
 // ── Construction ─────────────────────────────────────────────────────────────
 
 describe('new Game() [starting position]', () => {
-  bench('@echecs/game', () => {
-    new Game();
+  test('@echecs/game', async ({ bench }) => {
+    await bench('@echecs/game', () => {
+      new Game();
+    }).run();
   });
-  bench('chess.js', () => {
-    new Chess();
+  test('chess.js', async ({ bench }) => {
+    await bench('chess.js', () => {
+      new Chess();
+    }).run();
   });
 });
 
 describe('new Game(fromFen()) [starting position]', () => {
-  bench('@echecs/game', () => {
-    new Game(fromFen(STARTING_FEN));
+  test('@echecs/game', async ({ bench }) => {
+    await bench('@echecs/game', () => {
+      new Game(fromFen(STARTING_FEN));
+    }).run();
   });
-  bench('chess.js', () => {
-    new Chess(STARTING_FEN);
+  test('chess.js', async ({ bench }) => {
+    await bench('chess.js', () => {
+      new Chess(STARTING_FEN);
+    }).run();
   });
 });
 
 describe('new Game(fromFen()) [midgame]', () => {
-  bench('@echecs/game', () => {
-    new Game(fromFen(MIDGAME_FEN));
+  test('@echecs/game', async ({ bench }) => {
+    await bench('@echecs/game', () => {
+      new Game(fromFen(MIDGAME_FEN));
+    }).run();
   });
-  bench('chess.js', () => {
-    new Chess(MIDGAME_FEN);
+  test('chess.js', async ({ bench }) => {
+    await bench('chess.js', () => {
+      new Chess(MIDGAME_FEN);
+    }).run();
   });
 });
 
 // ── Move generation ───────────────────────────────────────────────────────────
 
 describe('moves() [starting position — 20 moves, uncached]', () => {
-  bench('@echecs/game', () => {
-    new Game().moves();
+  test('@echecs/game', async ({ bench }) => {
+    await bench('@echecs/game', () => {
+      new Game().moves();
+    }).run();
   });
-  bench('chess.js', () => {
-    new Chess().moves();
+  test('chess.js', async ({ bench }) => {
+    await bench('chess.js', () => {
+      new Chess().moves();
+    }).run();
   });
 });
 
 describe('moves() [midgame, uncached]', () => {
-  bench('@echecs/game', () => {
-    new Game(fromFen(MIDGAME_FEN)).moves();
+  test('@echecs/game', async ({ bench }) => {
+    await bench('@echecs/game', () => {
+      new Game(fromFen(MIDGAME_FEN)).moves();
+    }).run();
   });
-  bench('chess.js', () => {
-    new Chess(MIDGAME_FEN).moves();
+  test('chess.js', async ({ bench }) => {
+    await bench('chess.js', () => {
+      new Chess(MIDGAME_FEN).moves();
+    }).run();
   });
 });
 
 describe('moves({square}) [e2 — 2 moves, uncached]', () => {
-  bench('@echecs/game', () => {
-    new Game().moves('e2');
+  test('@echecs/game', async ({ bench }) => {
+    await bench('@echecs/game', () => {
+      new Game().moves('e2');
+    }).run();
   });
-  bench('chess.js', () => {
-    new Chess().moves({ square: 'e2' });
+  test('chess.js', async ({ bench }) => {
+    await bench('chess.js', () => {
+      new Chess().moves({ square: 'e2' });
+    }).run();
   });
 });
 
@@ -81,13 +107,17 @@ describe('moves({square}) [e2 — 2 moves, uncached]', () => {
 describe('move({from,to}) + undo()', () => {
   const g = new Game();
   const c = new Chess();
-  bench('@echecs/game', () => {
-    g.move({ from: 'e2', to: 'e4' });
-    g.undo();
+  test('@echecs/game', async ({ bench }) => {
+    await bench('@echecs/game', () => {
+      g.move({ from: 'e2', to: 'e4' });
+      g.undo();
+    }).run();
   });
-  bench('chess.js', () => {
-    c.move({ from: 'e2', to: 'e4' });
-    c.undo();
+  test('chess.js', async ({ bench }) => {
+    await bench('chess.js', () => {
+      c.move({ from: 'e2', to: 'e4' });
+      c.undo();
+    }).run();
   });
 });
 
@@ -96,22 +126,30 @@ describe('move({from,to}) + undo()', () => {
 describe('position()', () => {
   const g = new Game();
   const c = new Chess();
-  bench('@echecs/game', () => {
-    g.position();
+  test('@echecs/game', async ({ bench }) => {
+    await bench('@echecs/game', () => {
+      g.position();
+    }).run();
   });
-  bench('chess.js', () => {
-    c.fen();
+  test('chess.js', async ({ bench }) => {
+    await bench('chess.js', () => {
+      c.fen();
+    }).run();
   });
 });
 
 describe('get("e1")', () => {
   const g = new Game();
   const c = new Chess();
-  bench('@echecs/game', () => {
-    g.get('e1');
+  test('@echecs/game', async ({ bench }) => {
+    await bench('@echecs/game', () => {
+      g.get('e1');
+    }).run();
   });
-  bench('chess.js', () => {
-    c.get('e1');
+  test('chess.js', async ({ bench }) => {
+    await bench('chess.js', () => {
+      c.get('e1');
+    }).run();
   });
 });
 
@@ -120,55 +158,75 @@ describe('get("e1")', () => {
 describe('isCheck() [starting position — false]', () => {
   const g = new Game();
   const c = new Chess();
-  bench('@echecs/game', () => {
-    g.isCheck();
+  test('@echecs/game', async ({ bench }) => {
+    await bench('@echecs/game', () => {
+      g.isCheck();
+    }).run();
   });
-  bench('chess.js', () => {
-    c.isCheck();
+  test('chess.js', async ({ bench }) => {
+    await bench('chess.js', () => {
+      c.isCheck();
+    }).run();
   });
 });
 
 describe('isCheckmate() [checkmate position — true]', () => {
   const g = new Game(fromFen(CHECKMATE_FEN));
   const c = new Chess(CHECKMATE_FEN);
-  bench('@echecs/game', () => {
-    g.isCheckmate();
+  test('@echecs/game', async ({ bench }) => {
+    await bench('@echecs/game', () => {
+      g.isCheckmate();
+    }).run();
   });
-  bench('chess.js', () => {
-    c.isCheckmate();
+  test('chess.js', async ({ bench }) => {
+    await bench('chess.js', () => {
+      c.isCheckmate();
+    }).run();
   });
 });
 
 describe('isStalemate() [stalemate position — true]', () => {
   const g = new Game(fromFen(STALEMATE_FEN));
   const c = new Chess(STALEMATE_FEN);
-  bench('@echecs/game', () => {
-    g.isStalemate();
+  test('@echecs/game', async ({ bench }) => {
+    await bench('@echecs/game', () => {
+      g.isStalemate();
+    }).run();
   });
-  bench('chess.js', () => {
-    c.isStalemate();
+  test('chess.js', async ({ bench }) => {
+    await bench('chess.js', () => {
+      c.isStalemate();
+    }).run();
   });
 });
 
 describe('isDraw() [starting position — false]', () => {
   const g = new Game();
   const c = new Chess();
-  bench('@echecs/game', () => {
-    g.isDraw();
+  test('@echecs/game', async ({ bench }) => {
+    await bench('@echecs/game', () => {
+      g.isDraw();
+    }).run();
   });
-  bench('chess.js', () => {
-    c.isDraw();
+  test('chess.js', async ({ bench }) => {
+    await bench('chess.js', () => {
+      c.isDraw();
+    }).run();
   });
 });
 
 describe('isGameOver() [starting position — false]', () => {
   const g = new Game();
   const c = new Chess();
-  bench('@echecs/game', () => {
-    g.isGameOver();
+  test('@echecs/game', async ({ bench }) => {
+    await bench('@echecs/game', () => {
+      g.isGameOver();
+    }).run();
   });
-  bench('chess.js', () => {
-    c.isGameOver();
+  test('chess.js', async ({ bench }) => {
+    await bench('chess.js', () => {
+      c.isGameOver();
+    }).run();
   });
 });
 
@@ -195,10 +253,14 @@ function perft(game: Game, depth: number): number {
 }
 
 describe('perft(3) [starting position — 8,902 nodes]', () => {
-  bench('@echecs/game', () => {
-    perft(new Game(), 3);
+  test('@echecs/game', async ({ bench }) => {
+    await bench('@echecs/game', () => {
+      perft(new Game(), 3);
+    }).run();
   });
-  bench('chess.js', () => {
-    new Chess(STARTING_FEN).perft(3);
+  test('chess.js', async ({ bench }) => {
+    await bench('chess.js', () => {
+      new Chess(STARTING_FEN).perft(3);
+    }).run();
   });
 });
