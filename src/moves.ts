@@ -22,9 +22,9 @@ function enemyColor(color: Color): Color {
 }
 
 /**
- * Check if the king would be in check on the given square. Derives a
- * position with the king moved there and reuses Position.isCheck.
- */
+Check if the king would be in check on the given square. Derives a
+position with the king moved there and reuses Position.isCheck.
+*/
 function isKingAttackedOn(
   position: Position,
   kingSquare: Square,
@@ -46,9 +46,9 @@ function isKingAttackedOn(
 }
 
 /**
- * Generate pseudo-legal moves for a piece on a square, excluding castling.
- * Uses `position.reach()` for target squares.
- */
+Generate pseudo-legal moves for a piece on a square, excluding castling.
+Uses `position.reach()` for target squares.
+*/
 function generatePseudoLegalMoves(position: Position, square: Square): Move[] {
   const piece = position.at(square);
   if (piece === undefined || piece.color !== position.turn) {
@@ -78,22 +78,22 @@ function generatePseudoLegalMoves(position: Position, square: Square): Move[] {
 }
 
 /**
- * Generate castling moves for the active color.
- */
+Generate castling moves for the active color.
+*/
 function generateCastlingMoves(position: Position): Move[] {
   const moves: Move[] = [];
   const color = position.turn;
   const rank = color === 'white' ? '1' : '8';
   const kingSquare: Square = `e${rank}` as Square;
 
-  // King must be on e1/e8
+  // King must be on e1/e8 and not be in check
   const king = position.at(kingSquare);
-  if (king === undefined || king.type !== 'king' || king.color !== color) {
-    return moves;
-  }
-
-  // King must not be in check
-  if (position.isCheck) {
+  if (
+    king === undefined ||
+    king.type !== 'king' ||
+    king.color !== color ||
+    position.isCheck
+  ) {
     return moves;
   }
 
@@ -138,10 +138,10 @@ function generateCastlingMoves(position: Position): Move[] {
 }
 
 /**
- * Compute only the board changes for a move (piece movement, en passant pawn
- * removal, castling rook relocation). Does not touch castling rights, clocks,
- * or turn. Used by the legality filter to avoid a full double-derive.
- */
+Compute only the board changes for a move (piece movement, en passant pawn
+removal, castling rook relocation). Does not touch castling rights, clocks,
+or turn. Used by the legality filter to avoid a full double-derive.
+*/
 function boardChanges(
   position: Position,
   m: Move,
@@ -201,9 +201,9 @@ function boardChanges(
 }
 
 /**
- * Apply a move to a Position, returning the new Position and a Movement[].
- * Does not validate legality — assumes the move is valid.
- */
+Apply a move to a Position, returning the new Position and a Movement[].
+Does not validate legality — assumes the move is valid.
+*/
 function move(
   position: Position,
   m: Move,
@@ -377,8 +377,8 @@ function move(
 }
 
 /**
- * Generate all legal moves for the active color, optionally filtered by square.
- */
+Generate all legal moves for the active color, optionally filtered by square.
+*/
 function generateMoves(position: Position, square?: Square): Move[] {
   const pseudoMoves: Move[] = [];
 
